@@ -50,7 +50,7 @@ export class ClusterResource extends CoreConstruct {
   public readonly attrOpenIdConnectIssuer: string;
   public readonly ref: string;
 
-  public readonly adminRole: iam.Role;
+  public readonly clusterCreationRole: iam.Role;
 
   constructor(scope: Construct, id: string, props: ClusterResourceProps) {
     super(scope, id);
@@ -59,10 +59,10 @@ export class ClusterResource extends CoreConstruct {
       throw new Error('"roleArn" is required');
     }
 
-    this.adminRole = this.createAdminRole(props);
+    this.clusterCreationRole = this.createAdminRole(props);
 
     const provider = ClusterResourceProvider.getOrCreate(this, {
-      adminRole: this.adminRole,
+      clusterCreationRole: this.clusterCreationRole,
       subnets: props.subnets,
       vpc: props.vpc,
       environment: props.environment,
@@ -90,7 +90,7 @@ export class ClusterResource extends CoreConstruct {
             publicAccessCidrs: props.publicAccessCidrs,
           },
         },
-        AssumeRoleArn: this.adminRole.roleArn,
+        AssumeRoleArn: this.clusterCreationRole.roleArn,
 
         // IMPORTANT: increment this number when you add new attributes to the
         // resource. Otherwise, CloudFormation will error with "Vendor response
@@ -101,7 +101,7 @@ export class ClusterResource extends CoreConstruct {
       },
     });
 
-    resource.node.addDependency(this.adminRole);
+    resource.node.addDependency(this.clusterCreationRole);
 
     this.ref = resource.ref;
     this.attrEndpoint = Token.asString(resource.getAtt('Endpoint'));

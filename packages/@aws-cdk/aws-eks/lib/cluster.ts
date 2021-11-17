@@ -1101,8 +1101,9 @@ export class Cluster extends ClusterBase {
   /**
    * An IAM role with administrative permissions to create or update the
    * cluster. This role also has `systems:master` permissions.
+   * @attribute
    */
-  public readonly adminRole: iam.Role;
+  public readonly clusterCreationRole: iam.Role;
 
   /**
    * If the cluster has one (or more) FargateProfiles associated, this array
@@ -1305,7 +1306,7 @@ export class Cluster extends ClusterBase {
       this._clusterResource.node.addDependency(this.vpc);
     }
 
-    this.adminRole = resource.adminRole;
+    this.clusterCreationRole = resource.clusterCreationRole;
 
     // we use an SSM parameter as a barrier because it's free and fast.
     this._kubectlReadyBarrier = new CfnResource(this, 'KubectlReadyBarrier', {
@@ -1340,7 +1341,7 @@ export class Cluster extends ClusterBase {
 
     // use the cluster creation role to issue kubectl commands against the cluster because when the
     // cluster is first created, that's the only role that has "system:masters" permissions
-    this.kubectlRole = this.adminRole;
+    this.kubectlRole = this.clusterCreationRole;
 
     this._kubectlResourceProvider = this.defineKubectlProvider();
 
