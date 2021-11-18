@@ -16,6 +16,8 @@ const HANDLER_DIR = path.join(__dirname, 'cluster-resource-handler');
 const HANDLER_RUNTIME = lambda.Runtime.NODEJS_12_X;
 
 export interface ClusterResourceProviderProps {
+  clusterResourceProviderTemplateURL?: string;
+
   /**
    * The IAM role to assume in order to interact with the cluster.
    */
@@ -63,11 +65,17 @@ export class ClusterResourceProvider extends NestedStack {
   public static getOrCreate(scope: Construct, props: ClusterResourceProviderProps) {
     const stack = Stack.of(scope);
     const uid = '@aws-cdk/aws-eks.ClusterResourceProvider';
-    return stack.node.tryFindChild(uid) as ClusterResourceNestedStack ?? new ClusterResourceNestedStack(stack, uid, {
-      clusterCreationRole: props.clusterCreationRole,
-      subnets: props.subnets,
-      securityGroup: props.securityGroup,
-    });
+
+    if (props.clusterResourceProviderTemplateURL) {
+      return stack.node.tryFindChild(uid) as ClusterResourceNestedStack ?? new ClusterResourceNestedStack(stack, uid, {
+        templateURL: props.clusterResourceProviderTemplateURL,
+        clusterCreationRole: props.clusterCreationRole,
+        subnets: props.subnets,
+        securityGroup: props.securityGroup,
+      });
+    } else {
+      return stack.node.tryFindChild(uid) as ClusterResourceProvider ?? new ClusterResourceProvider(stack, uid, props);
+    }
   }
 
   /**

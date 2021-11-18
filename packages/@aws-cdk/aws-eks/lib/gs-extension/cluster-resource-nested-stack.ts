@@ -7,15 +7,13 @@ import { CfnStack, Fn, RemovalPolicy, Token } from '@aws-cdk/core';
 import { Construct as CoreConstruct } from '@aws-cdk/core';
 
 export interface ClusterResourceNestedStackProps {
-  // templateUrl: string;
+  templateURL: string;
   clusterCreationRole: iam.IRole;
   subnets?: ec2.ISubnet[];
   securityGroup?: ec2.ISecurityGroup;
 
   removalPolicy?: RemovalPolicy;
 }
-
-const CLUSTER_RESOURCE_NESTED_STACK_TEMPLATE_URL = '';
 
 const PROVIDER_ARN_OUTPUT_NAME = 'Outputs.ClusterResourceProviderframeworkonEventC6B02E13Arn';
 
@@ -34,7 +32,7 @@ export class ClusterResourceNestedStack extends CoreConstruct {
     const parentScope = new CoreConstruct(scope, id + '.NestedStack');
 
     this.resource = new CfnStack(parentScope, `${id}.NestedStackResource`, {
-      templateUrl: CLUSTER_RESOURCE_NESTED_STACK_TEMPLATE_URL,
+      templateUrl: props.templateURL,
       parameters: {
         ClusterCreationRoleArn: props.clusterCreationRole.roleArn,
         SubnetIds: Fn.join(',', props.subnets!.map(subnet => subnet.subnetId)),

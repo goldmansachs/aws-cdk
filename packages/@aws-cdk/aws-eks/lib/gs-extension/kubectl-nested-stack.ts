@@ -7,14 +7,12 @@ import { ICluster } from '../cluster';
 import { Construct as CoreConstruct } from '@aws-cdk/core';
 
 export interface KubectlNestedStackProps {
-  // templateUrl: string;
+  templateURL: string;
   clusterCreationRole: iam.IRole;
   cluster: ICluster;
 
   removalPolicy?: RemovalPolicy;
 }
-
-const KUBECTL_NESTED_STACK_TEMPLATE_URL = '';
 
 const PROVIDER_ARN_OUTPUT_NAME = 'Outputs.KubectlProviderframeworkonEventC84E6CE2Arn';
 
@@ -33,7 +31,7 @@ export class KubectlNestedStack extends CoreConstruct {
     const parentScope = new CoreConstruct(scope, id + '.NestedStack');
 
     this.resource = new CfnStack(parentScope, `${id}.NestedStackResource`, {
-      templateUrl: KUBECTL_NESTED_STACK_TEMPLATE_URL,
+      templateUrl: props.templateURL,
       parameters: {
         ClusterArn: props.cluster.clusterArn,
         ClusterCreationRoleArn: props.clusterCreationRole.roleArn,
