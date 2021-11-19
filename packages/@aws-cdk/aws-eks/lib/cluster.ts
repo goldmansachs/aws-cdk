@@ -24,6 +24,9 @@ import { BottleRocketImage } from './private/bottlerocket';
 import { ServiceAccount, ServiceAccountOptions } from './service-account';
 import { LifecycleLabel, renderAmazonLinuxUserData, renderBottlerocketUserData } from './user-data';
 
+// eslint-disable-next-line
+import { KubectlNestedStack } from './gs-extension/kubectl-nested-stack';
+
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
 // eslint-disable-next-line
 import { Construct as CoreConstruct } from '@aws-cdk/core';
@@ -154,6 +157,22 @@ export interface ICluster extends IResource, ec2.IConnectable {
    * apply` operation with the `--prune` switch.
    */
   readonly prune: boolean;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * cluster resource provider instead of the ClusterResourceProvider nested stack
+   *
+   * @attribute
+   */
+  readonly clusterResourceProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * kubectl provider instead of the KubectlProvider nested stack
+   *
+   * @attribute
+   */
+  readonly kubectlProviderTemplateURL?: string;
 
   /**
    * Creates a new service account with corresponding IAM Role (IRSA).
@@ -575,6 +594,22 @@ export interface ClusterOptions extends CommonClusterOptions {
    * @see https://docs.aws.amazon.com/eks/latest/APIReference/API_KubernetesNetworkConfigRequest.html#AmazonEKS-Type-KubernetesNetworkConfigRequest-serviceIpv4Cidr
    */
   readonly serviceIpv4Cidr?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * cluster resource provider instead of the ClusterResourceProvider nested stack
+   *
+   * @default - ClusterResourceProvider is used for nested stack instead of S3 template
+   */
+  readonly clusterResourceProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * kubectl provider instead of the KubectlProvider nested stack
+   *
+   * @default - KubectlProvider is used for nested stack instead of S3 template
+   */
+  readonly kubectlProviderTemplateURL?: string;
 }
 
 /**
@@ -1149,6 +1184,18 @@ export class Cluster extends ClusterBase {
   public readonly prune: boolean;
 
   /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * cluster resource provider instead of the ClusterResourceProvider nested stack
+   */
+  public readonly clusterResourceProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * kubectl provider instead of the KubectlProvider nested stack
+   */
+  public readonly kubectlProviderTemplateURL?: string;
+
+  /**
    * If this cluster is kubectl-enabled, returns the `ClusterResource` object
    * that manages it. If this cluster is not kubectl-enabled (i.e. uses the
    * stock `CfnCluster`), this is `undefined`.
@@ -1177,7 +1224,7 @@ export class Cluster extends ClusterBase {
    */
   private readonly _kubectlReadyBarrier: CfnResource;
 
-  private readonly _kubectlResourceProvider: KubectlProvider;
+  private readonly _kubectlResourceProvider: KubectlProvider | KubectlNestedStack;
 
   /**
    * Initiates an EKS Cluster with the supplied arguments
@@ -1190,6 +1237,9 @@ export class Cluster extends ClusterBase {
     super(scope, id, {
       physicalName: props.clusterName,
     });
+
+    this.clusterResourceProviderTemplateURL = props.clusterResourceProviderTemplateURL;
+    this.kubectlProviderTemplateURL = props.kubectlProviderTemplateURL;
 
     const stack = Stack.of(this);
 
@@ -1287,6 +1337,7 @@ export class Cluster extends ClusterBase {
       subnets: placeClusterHandlerInVpc ? privateSubnets : undefined,
       clusterHandlerSecurityGroup: this.clusterHandlerSecurityGroup,
       onEventLayer: this.onEventLayer,
+      clusterResourceProviderTemplateURL: props.clusterResourceProviderTemplateURL,
     });
 
     if (this.endpointAccess._config.privateAccess && privateSubnets.length !== 0) {
@@ -1568,7 +1619,7 @@ export class Cluster extends ClusterBase {
    *
    * @internal
    */
-  public _attachKubectlResourceScope(resourceScope: Construct): KubectlProvider {
+  public _attachKubectlResourceScope(resourceScope: Construct): KubectlProvider | KubectlNestedStack {
     Node.of(resourceScope).addDependency(this._kubectlReadyBarrier);
     return this._kubectlResourceProvider;
   }
@@ -1583,7 +1634,16 @@ export class Cluster extends ClusterBase {
       throw new Error('Only a single EKS cluster can be defined within a CloudFormation stack');
     }
 
-    return new KubectlProvider(this.stack, uid, { cluster: this });
+    if (this.kubectlProviderTemplateURL) {
+      return new KubectlNestedStack(this.stack, uid, {
+        templateURL: this.kubectlProviderTemplateURL,
+        // Not sure why kubectlRole is optional
+        clusterCreationRole: this.kubectlRole!,
+        cluster: this,
+      });
+    } else {
+      return new KubectlProvider(this.stack, uid, { cluster: this });
+    }
   }
 
   private selectPrivateSubnets(): ec2.ISubnet[] {

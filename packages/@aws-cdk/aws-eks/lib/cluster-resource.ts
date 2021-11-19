@@ -28,6 +28,7 @@ export interface ClusterResourceProps {
   readonly secretsEncryptionKey?: kms.IKey;
   readonly onEventLayer?: lambda.ILayerVersion;
   readonly clusterHandlerSecurityGroup?: ec2.ISecurityGroup;
+  readonly clusterResourceProviderTemplateURL?: string;
 }
 
 /**
@@ -62,6 +63,7 @@ export class ClusterResource extends CoreConstruct {
     this.clusterCreationRole = this.createAdminRole(props);
 
     const provider = ClusterResourceProvider.getOrCreate(this, {
+      clusterResourceProviderTemplateURL: props.clusterResourceProviderTemplateURL,
       clusterCreationRole: this.clusterCreationRole,
       subnets: props.subnets,
       vpc: props.vpc,

@@ -43,7 +43,8 @@ export class ClusterResourceNestedStack extends CoreConstruct {
   }
 
   /**
-   * The custom resource service token for this provider.
+   * Helper method to conform to the ClusterResourceProvider interface and
+   * the custom resource service token for this provider.
    */
   public get serviceToken() {
     return Token.asString(

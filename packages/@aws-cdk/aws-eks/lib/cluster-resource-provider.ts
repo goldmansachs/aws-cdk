@@ -16,8 +16,6 @@ const HANDLER_DIR = path.join(__dirname, 'cluster-resource-handler');
 const HANDLER_RUNTIME = lambda.Runtime.NODEJS_12_X;
 
 export interface ClusterResourceProviderProps {
-  clusterResourceProviderTemplateURL?: string;
-
   /**
    * The IAM role to assume in order to interact with the cluster.
    */
@@ -51,6 +49,14 @@ export interface ClusterResourceProviderProps {
    * @default - No security group.
    */
   readonly securityGroup?: ec2.ISecurityGroup;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * cluster resource provider instead of the ClusterResourceProvider nested stack
+   *
+   * @default - ClusterResourceProvider is used for nested stack instead of S3 template
+   */
+  readonly clusterResourceProviderTemplateURL?: string;
 }
 
 /**

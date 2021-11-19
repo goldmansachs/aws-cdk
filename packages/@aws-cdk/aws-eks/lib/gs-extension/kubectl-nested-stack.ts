@@ -22,7 +22,7 @@ export class KubectlNestedStack extends CoreConstruct {
   constructor(
     scope: CoreConstruct,
     id: string,
-    props: KubectlNestedStackProps,
+    private readonly props: KubectlNestedStackProps,
   ) {
     super(scope, id);
 
@@ -43,11 +43,20 @@ export class KubectlNestedStack extends CoreConstruct {
   }
 
   /**
-   * The custom resource service token for this provider.
+   * Helper method to conform to the KubectlProvider interface and
+   * the custom resource service token for this provider.
    */
   public get serviceToken() {
     return Token.asString(
       this.resource.getAtt(PROVIDER_ARN_OUTPUT_NAME),
     );
+  }
+
+  /**
+   * Helper method to conform to the KubectlProvider interface and
+   * return the roleArn of the attached role
+   */
+  public get roleArn() {
+    return this.props.clusterCreationRole.roleArn;
   }
 }

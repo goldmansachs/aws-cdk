@@ -148,6 +148,7 @@ export class FargateProfile extends CoreConstruct implements ITaggable {
     super(scope, id);
 
     const provider = ClusterResourceProvider.getOrCreate(this, {
+      clusterResourceProviderTemplateURL: props.cluster.clusterResourceProviderTemplateURL,
       clusterCreationRole: props.cluster.clusterCreationRole,
       onEventLayer: props.cluster.onEventLayer,
       vpc: props.cluster.vpc!,
