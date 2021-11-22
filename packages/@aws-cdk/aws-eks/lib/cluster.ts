@@ -12,6 +12,7 @@ import * as YAML from 'yaml';
 import { AwsAuth } from './aws-auth';
 import { ClusterResource, clusterArnComponents } from './cluster-resource';
 import { FargateProfile, FargateProfileOptions } from './fargate-profile';
+import { EKSRolesNestedStack } from './gs-extension/eks-iam-nested-stack';
 import { HelmChart, HelmChartOptions } from './helm-chart';
 import { INSTANCE_TYPES } from './instance-types';
 import { KubernetesManifest } from './k8s-manifest';
@@ -1102,7 +1103,7 @@ export class Cluster extends ClusterBase {
    * An IAM role with administrative permissions to create or update the
    * cluster. This role also has `systems:master` permissions.
    */
-  public readonly adminRole: iam.Role;
+  public readonly adminRole: iam.IRole;
 
   /**
    * If the cluster has one (or more) FargateProfiles associated, this array
@@ -1198,13 +1199,15 @@ export class Cluster extends ClusterBase {
 
     this.tagSubnets();
 
-    // this is the role used by EKS when interacting with AWS resources
-    this.role = props.role || new iam.Role(this, 'Role', {
-      assumedBy: new iam.ServicePrincipal('eks.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSClusterPolicy'),
-      ],
+    const eksiam = new EKSRolesNestedStack(this, 'EKSIAM', {
+      templateUrl: 'randomurlfixthislater',
+      key: props.secretsEncryptionKey,
     });
+       
+    this.role = iam.Role.fromRoleArn(this, 'ServiceRole', eksiam.eksServiceRoleArn);
+    const clusterCreationRole = iam.Role.fromRoleArn(this, 'ClusterCreationRole', eksiam.clusterCreationRoleArn);
+    this.adminRole = clusterCreationRole;
+
 
     const securityGroup = props.securityGroup || new ec2.SecurityGroup(this, 'ControlPlaneSecurityGroup', {
       vpc: this.vpc,
@@ -1305,7 +1308,6 @@ export class Cluster extends ClusterBase {
       this._clusterResource.node.addDependency(this.vpc);
     }
 
-    this.adminRole = resource.adminRole;
 
     // we use an SSM parameter as a barrier because it's free and fast.
     this._kubectlReadyBarrier = new CfnResource(this, 'KubectlReadyBarrier', {
@@ -1355,9 +1357,7 @@ export class Cluster extends ClusterBase {
     // if an explicit role is not configured, define a masters role that can
     // be assumed by anyone in the account (with sts:AssumeRole permissions of
     // course)
-    const mastersRole = props.mastersRole ?? new iam.Role(this, 'MastersRole', {
-      assumedBy: new iam.AccountRootPrincipal(),
-    });
+    const mastersRole = iam.Role.fromRoleArn(this, 'MastersRole', eksiam.mastersRoleArn);
 
     // map the IAM role to the `system:masters` group.
     this.awsAuth.addMastersRole(mastersRole);

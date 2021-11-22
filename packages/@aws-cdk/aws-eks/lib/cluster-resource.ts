@@ -2,7 +2,7 @@ import * as ec2 from '@aws-cdk/aws-ec2';
 import * as iam from '@aws-cdk/aws-iam';
 import * as kms from '@aws-cdk/aws-kms';
 import * as lambda from '@aws-cdk/aws-lambda';
-import { ArnComponents, CustomResource, Token, Stack, Lazy } from '@aws-cdk/core';
+import { ArnComponents, CustomResource, Token } from '@aws-cdk/core';
 import { Construct } from 'constructs';
 import { CLUSTER_RESOURCE_TYPE } from './cluster-resource-handler/consts';
 import { ClusterResourceProvider } from './cluster-resource-provider';
@@ -50,7 +50,7 @@ export class ClusterResource extends CoreConstruct {
   public readonly attrOpenIdConnectIssuer: string;
   public readonly ref: string;
 
-  public readonly adminRole: iam.Role;
+  public readonly clusterCreationRole: iam.IRole;
 
   constructor(scope: Construct, id: string, props: ClusterResourceProps) {
     super(scope, id);
@@ -59,10 +59,10 @@ export class ClusterResource extends CoreConstruct {
       throw new Error('"roleArn" is required');
     }
 
-    this.adminRole = this.createAdminRole(props);
+    this.clusterCreationRole = props.clusterCreationRole;
 
     const provider = ClusterResourceProvider.getOrCreate(this, {
-      adminRole: this.adminRole,
+      adminRole: this.clusterCreationRole,
       subnets: props.subnets,
       vpc: props.vpc,
       environment: props.environment,
@@ -90,7 +90,7 @@ export class ClusterResource extends CoreConstruct {
             publicAccessCidrs: props.publicAccessCidrs,
           },
         },
-        AssumeRoleArn: this.adminRole.roleArn,
+        AssumeRoleArn: this.clusterCreationRole.roleArn,
 
         // IMPORTANT: increment this number when you add new attributes to the
         // resource. Otherwise, CloudFormation will error with "Vendor response
@@ -101,7 +101,7 @@ export class ClusterResource extends CoreConstruct {
       },
     });
 
-    resource.node.addDependency(this.adminRole);
+    resource.node.addDependency(this.clusterCreationRole);
 
     this.ref = resource.ref;
     this.attrEndpoint = Token.asString(resource.getAtt('Endpoint'));
@@ -113,104 +113,6 @@ export class ClusterResource extends CoreConstruct {
     this.attrOpenIdConnectIssuer = Token.asString(resource.getAtt('OpenIdConnectIssuer'));
   }
 
-  private createAdminRole(props: ClusterResourceProps) {
-    const stack = Stack.of(this);
-
-    // the role used to create the cluster. this becomes the administrator role
-    // of the cluster.
-    const creationRole = new iam.Role(this, 'CreationRole', {
-      assumedBy: new iam.AccountRootPrincipal(),
-    });
-
-    // the CreateCluster API will allow the cluster to assume this role, so we
-    // need to allow the lambda execution role to pass it.
-    creationRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['iam:PassRole'],
-      resources: [props.roleArn],
-    }));
-
-    // if we know the cluster name, restrict the policy to only allow
-    // interacting with this specific cluster otherwise, we will have to grant
-    // this role to manage all clusters in the account. this must be lazy since
-    // `props.name` may contain a lazy value that conditionally resolves to a
-    // physical name.
-    const resourceArns = Lazy.list({
-      produce: () => {
-        const arn = stack.formatArn(clusterArnComponents(stack.resolve(props.name)));
-        return stack.resolve(props.name)
-          ? [arn, `${arn}/*`] // see https://github.com/aws/aws-cdk/issues/6060
-          : ['*'];
-      },
-    });
-
-    const fargateProfileResourceArn = Lazy.string({
-      produce: () => stack.resolve(props.name)
-        ? stack.formatArn({ service: 'eks', resource: 'fargateprofile', resourceName: stack.resolve(props.name) + '/*' })
-        : '*',
-    });
-
-    creationRole.addToPolicy(new iam.PolicyStatement({
-      actions: [
-        'eks:CreateCluster',
-        'eks:DescribeCluster',
-        'eks:DescribeUpdate',
-        'eks:DeleteCluster',
-        'eks:UpdateClusterVersion',
-        'eks:UpdateClusterConfig',
-        'eks:CreateFargateProfile',
-        'eks:TagResource',
-        'eks:UntagResource',
-      ],
-      resources: resourceArns,
-    }));
-
-    creationRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['eks:DescribeFargateProfile', 'eks:DeleteFargateProfile'],
-      resources: [fargateProfileResourceArn],
-    }));
-
-    creationRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['iam:GetRole', 'iam:listAttachedRolePolicies'],
-      resources: ['*'],
-    }));
-
-    creationRole.addToPolicy(new iam.PolicyStatement({
-      actions: ['iam:CreateServiceLinkedRole'],
-      resources: ['*'],
-    }));
-
-    // see https://github.com/aws/aws-cdk/issues/9027
-    // these actions are the combined 'ec2:Describe*' actions taken from the EKS SLR policies.
-    // (AWSServiceRoleForAmazonEKS, AWSServiceRoleForAmazonEKSForFargate, AWSServiceRoleForAmazonEKSNodegroup)
-    creationRole.addToPolicy(new iam.PolicyStatement({
-      actions: [
-        'ec2:DescribeInstances',
-        'ec2:DescribeNetworkInterfaces',
-        'ec2:DescribeSecurityGroups',
-        'ec2:DescribeSubnets',
-        'ec2:DescribeRouteTables',
-        'ec2:DescribeDhcpOptions',
-        'ec2:DescribeVpcs',
-      ],
-      resources: ['*'],
-    }));
-
-    // grant cluster creation role sufficient permission to access the specified key
-    // see https://docs.aws.amazon.com/eks/latest/userguide/create-cluster.html
-    if (props.secretsEncryptionKey) {
-      creationRole.addToPolicy(new iam.PolicyStatement({
-        actions: [
-          'kms:Encrypt',
-          'kms:Decrypt',
-          'kms:DescribeKey',
-          'kms:CreateGrant',
-        ],
-        resources: [props.secretsEncryptionKey.keyArn],
-      }));
-    }
-
-    return creationRole;
-  }
 }
 
 export function clusterArnComponents(clusterName: string): ArnComponents {
