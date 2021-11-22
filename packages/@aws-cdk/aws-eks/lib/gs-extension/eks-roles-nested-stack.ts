@@ -1,4 +1,3 @@
-import * as iam from '@aws-cdk/aws-iam';
 import * as kms from '@aws-cdk/aws-kms';
 import { CfnStack, RemovalPolicy, Token } from '@aws-cdk/core';
 
@@ -9,7 +8,6 @@ import { Construct as CoreConstruct } from '@aws-cdk/core';
 export interface EksRolesNestedStackProps {
   templateUrl: string;
   key?: kms.IKey;
-  podExecutionRole?: iam.IRole
 
   removalPolicy?: RemovalPolicy;
 }
@@ -17,6 +15,7 @@ export interface EksRolesNestedStackProps {
 const CLUSTER_CREATION_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSClusterCreationRoleArn';
 const EKS_SERVICE_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSServiceRoleArn';
 const MASTERS_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSMastersRoleArn';
+const EKS_POD_EXECUTION_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSPodExecutionRoleArn';
 
 export class EksRolesNestedStack extends CoreConstruct {
   private readonly resource: CfnStack;
@@ -64,6 +63,15 @@ export class EksRolesNestedStack extends CoreConstruct {
   public get eksServiceRoleArn() {
     return Token.asString(
       this.resource.getAtt(EKS_SERVICE_ROLE_ARN_OUTPUT_NAME),
+    );
+  }
+
+  /**
+   * Pod execution role required for EKS Fargate
+   */
+  public get eksPodExecutionRoleArn() {
+    return Token.asString(
+      this.resource.getAtt(EKS_POD_EXECUTION_ROLE_ARN_OUTPUT_NAME),
     );
   }
 

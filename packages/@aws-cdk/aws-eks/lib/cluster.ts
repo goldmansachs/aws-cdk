@@ -25,7 +25,7 @@ import { ServiceAccount, ServiceAccountOptions } from './service-account';
 import { LifecycleLabel, renderAmazonLinuxUserData, renderBottlerocketUserData } from './user-data';
 
 /* eslint-disable */
-import { EksRolesNestedStack } from './gs-extension/eks-iam-nested-stack';
+import { EksRolesNestedStack } from './gs-extension/eks-roles-nested-stack';
 import { KubectlNestedStack } from './gs-extension/kubectl-nested-stack';
 /* eslint-enable */
 
@@ -1220,6 +1220,12 @@ export class Cluster extends ClusterBase {
   public readonly eksRolesTemplateURL?: string;
 
   /**
+   * Generated EKS Fargate pod execution role whenusing compiled CFN template
+   * for EKS roles
+   */
+  public readonly podExecutionRoleArn?: string;
+
+  /**
    * If this cluster is kubectl-enabled, returns the `ClusterResource` object
    * that manages it. If this cluster is not kubectl-enabled (i.e. uses the
    * stock `CfnCluster`), this is `undefined`.
@@ -1233,6 +1239,8 @@ export class Cluster extends ClusterBase {
   private readonly vpcSubnets: ec2.SubnetSelection[];
 
   private readonly version: KubernetesVersion;
+
+  private readonly eksRolesNestedStack?: EksRolesNestedStack;
 
   /**
    * A dummy CloudFormation resource that is used as a wait barrier which
@@ -1281,16 +1289,18 @@ export class Cluster extends ClusterBase {
     let mastersRole: iam.IRole;
 
     if (props.eksRolesTemplateURL) {
-      const eksIam = new EksRolesNestedStack(this, 'EksIam', {
+      this.eksRolesNestedStack = new EksRolesNestedStack(this, 'EksIam', {
         templateUrl: props.eksRolesTemplateURL,
         key: props.secretsEncryptionKey,
       });
 
-      clusterCreationRoleArn = eksIam.clusterCreationRoleArn;
+      this.podExecutionRoleArn = this.eksRolesNestedStack.eksPodExecutionRoleArn;
 
-      this.role = iam.Role.fromRoleArn(this, 'Role', eksIam.eksServiceRoleArn);
+      clusterCreationRoleArn = this.eksRolesNestedStack.clusterCreationRoleArn;
 
-      mastersRole = iam.Role.fromRoleArn(this, 'MastersRole', eksIam.mastersRoleArn);
+      this.role = iam.Role.fromRoleArn(this, 'Role', this.eksRolesNestedStack.eksServiceRoleArn);
+
+      mastersRole = iam.Role.fromRoleArn(this, 'MastersRole', this.eksRolesNestedStack.mastersRoleArn);
     } else {
       this.role = props.role || new iam.Role(this, 'Role', {
         assumedBy: new iam.ServicePrincipal('eks.amazonaws.com'),
