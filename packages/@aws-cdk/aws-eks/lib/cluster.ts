@@ -12,7 +12,6 @@ import * as YAML from 'yaml';
 import { AwsAuth } from './aws-auth';
 import { ClusterResource, clusterArnComponents } from './cluster-resource';
 import { FargateProfile, FargateProfileOptions } from './fargate-profile';
-import { EKSRolesNestedStack } from './gs-extension/eks-iam-nested-stack';
 import { HelmChart, HelmChartOptions } from './helm-chart';
 import { INSTANCE_TYPES } from './instance-types';
 import { KubernetesManifest } from './k8s-manifest';
@@ -25,8 +24,10 @@ import { BottleRocketImage } from './private/bottlerocket';
 import { ServiceAccount, ServiceAccountOptions } from './service-account';
 import { LifecycleLabel, renderAmazonLinuxUserData, renderBottlerocketUserData } from './user-data';
 
-// eslint-disable-next-line
+// eslint-disable
+import { EKSRolesNestedStack } from './gs-extension/eks-iam-nested-stack';
 import { KubectlNestedStack } from './gs-extension/kubectl-nested-stack';
+// eslint-enable
 
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
 // eslint-disable-next-line
