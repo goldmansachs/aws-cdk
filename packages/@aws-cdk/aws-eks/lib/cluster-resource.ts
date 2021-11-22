@@ -2,7 +2,7 @@ import * as ec2 from '@aws-cdk/aws-ec2';
 import * as iam from '@aws-cdk/aws-iam';
 import * as kms from '@aws-cdk/aws-kms';
 import * as lambda from '@aws-cdk/aws-lambda';
-import { ArnComponents, CustomResource, Token, Stack, Lazy } from '@aws-cdk/core';
+import { ArnComponents, CustomResource, Lazy, Stack, Token } from '@aws-cdk/core';
 import { Construct } from 'constructs';
 import { CLUSTER_RESOURCE_TYPE } from './cluster-resource-handler/consts';
 import { ClusterResourceProvider } from './cluster-resource-provider';
@@ -29,6 +29,7 @@ export interface ClusterResourceProps {
   readonly onEventLayer?: lambda.ILayerVersion;
   readonly clusterHandlerSecurityGroup?: ec2.ISecurityGroup;
   readonly clusterResourceProviderTemplateURL?: string;
+  readonly clusterCreationRoleArn?: string;
 }
 
 /**
@@ -51,7 +52,7 @@ export class ClusterResource extends CoreConstruct {
   public readonly attrOpenIdConnectIssuer: string;
   public readonly ref: string;
 
-  public readonly clusterCreationRole: iam.Role;
+  public readonly clusterCreationRole: iam.IRole;
 
   constructor(scope: Construct, id: string, props: ClusterResourceProps) {
     super(scope, id);
@@ -60,7 +61,11 @@ export class ClusterResource extends CoreConstruct {
       throw new Error('"roleArn" is required');
     }
 
-    this.clusterCreationRole = this.createAdminRole(props);
+    if (props.clusterCreationRoleArn) {
+      this.clusterCreationRole = iam.Role.fromRoleArn(this, 'CreationRole', props.clusterCreationRoleArn);
+    } else {
+      this.clusterCreationRole = this.createAdminRole(props);
+    }
 
     const provider = ClusterResourceProvider.getOrCreate(this, {
       clusterResourceProviderTemplateURL: props.clusterResourceProviderTemplateURL,

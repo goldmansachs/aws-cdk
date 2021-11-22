@@ -24,8 +24,10 @@ import { BottleRocketImage } from './private/bottlerocket';
 import { ServiceAccount, ServiceAccountOptions } from './service-account';
 import { LifecycleLabel, renderAmazonLinuxUserData, renderBottlerocketUserData } from './user-data';
 
-// eslint-disable-next-line
+/* eslint-disable */
+import { EksRolesNestedStack } from './gs-extension/eks-iam-nested-stack';
 import { KubectlNestedStack } from './gs-extension/kubectl-nested-stack';
+/* eslint-enable */
 
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
 // eslint-disable-next-line
@@ -173,6 +175,14 @@ export interface ICluster extends IResource, ec2.IConnectable {
    * @attribute
    */
   readonly kubectlProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * EKS roles
+   *
+   * @attribute
+   */
+  readonly eksRolesTemplateURL?: string;
 
   /**
    * Creates a new service account with corresponding IAM Role (IRSA).
@@ -610,6 +620,14 @@ export interface ClusterOptions extends CommonClusterOptions {
    * @default - KubectlProvider is used for nested stack instead of S3 template
    */
   readonly kubectlProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * EKS roles
+   *
+   * @default - Default roles/roles passed into Construct are used
+   */
+  readonly eksRolesTemplateURL?: string;
 }
 
 /**
@@ -1138,7 +1156,7 @@ export class Cluster extends ClusterBase {
    * cluster. This role also has `systems:master` permissions.
    * @attribute
    */
-  public readonly clusterCreationRole: iam.Role;
+  public readonly clusterCreationRole: iam.IRole;
 
   /**
    * If the cluster has one (or more) FargateProfiles associated, this array
@@ -1196,6 +1214,12 @@ export class Cluster extends ClusterBase {
   public readonly kubectlProviderTemplateURL?: string;
 
   /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * EKS roles
+   */
+  public readonly eksRolesTemplateURL?: string;
+
+  /**
    * If this cluster is kubectl-enabled, returns the `ClusterResource` object
    * that manages it. If this cluster is not kubectl-enabled (i.e. uses the
    * stock `CfnCluster`), this is `undefined`.
@@ -1240,6 +1264,7 @@ export class Cluster extends ClusterBase {
 
     this.clusterResourceProviderTemplateURL = props.clusterResourceProviderTemplateURL;
     this.kubectlProviderTemplateURL = props.kubectlProviderTemplateURL;
+    this.eksRolesTemplateURL = props.eksRolesTemplateURL;
 
     const stack = Stack.of(this);
 
@@ -1249,13 +1274,36 @@ export class Cluster extends ClusterBase {
 
     this.tagSubnets();
 
-    // this is the role used by EKS when interacting with AWS resources
-    this.role = props.role || new iam.Role(this, 'Role', {
-      assumedBy: new iam.ServicePrincipal('eks.amazonaws.com'),
-      managedPolicies: [
-        iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSClusterPolicy'),
-      ],
-    });
+    let clusterCreationRoleArn;
+    // if an explicit role is not configured, define a masters role that can
+    // be assumed by anyone in the account (with sts:AssumeRole permissions of
+    // course)
+    let mastersRole: iam.IRole;
+
+    if (props.eksRolesTemplateURL) {
+      const eksIam = new EksRolesNestedStack(this, 'EksIam', {
+        templateUrl: props.eksRolesTemplateURL,
+        key: props.secretsEncryptionKey,
+      });
+
+      clusterCreationRoleArn = eksIam.clusterCreationRoleArn;
+
+      this.role = iam.Role.fromRoleArn(this, 'Role', eksIam.eksServiceRoleArn);
+
+      mastersRole = iam.Role.fromRoleArn(this, 'MastersRole', eksIam.mastersRoleArn);
+    } else {
+      this.role = props.role || new iam.Role(this, 'Role', {
+        assumedBy: new iam.ServicePrincipal('eks.amazonaws.com'),
+        managedPolicies: [
+          iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSClusterPolicy'),
+        ],
+      });
+
+      mastersRole = props.mastersRole ?? new iam.Role(this, 'MastersRole', {
+        assumedBy: new iam.AccountRootPrincipal(),
+      });
+    }
+
 
     const securityGroup = props.securityGroup || new ec2.SecurityGroup(this, 'ControlPlaneSecurityGroup', {
       vpc: this.vpc,
@@ -1338,6 +1386,7 @@ export class Cluster extends ClusterBase {
       clusterHandlerSecurityGroup: this.clusterHandlerSecurityGroup,
       onEventLayer: this.onEventLayer,
       clusterResourceProviderTemplateURL: props.clusterResourceProviderTemplateURL,
+      clusterCreationRoleArn,
     });
 
     if (this.endpointAccess._config.privateAccess && privateSubnets.length !== 0) {
@@ -1357,8 +1406,6 @@ export class Cluster extends ClusterBase {
       this._clusterResource.node.addDependency(this.vpc);
     }
 
-    this.clusterCreationRole = resource.clusterCreationRole;
-
     // we use an SSM parameter as a barrier because it's free and fast.
     this._kubectlReadyBarrier = new CfnResource(this, 'KubectlReadyBarrier', {
       type: 'AWS::SSM::Parameter',
@@ -1367,6 +1414,8 @@ export class Cluster extends ClusterBase {
         Value: 'aws:cdk:eks:kubectl-ready',
       },
     });
+
+    this.clusterCreationRole = resource.clusterCreationRole;
 
     // add the cluster resource itself as a dependency of the barrier
     this._kubectlReadyBarrier.node.addDependency(this._clusterResource);
@@ -1403,13 +1452,6 @@ export class Cluster extends ClusterBase {
     if (props.outputClusterName) {
       new CfnOutput(this, 'ClusterName', { value: this.clusterName });
     }
-
-    // if an explicit role is not configured, define a masters role that can
-    // be assumed by anyone in the account (with sts:AssumeRole permissions of
-    // course)
-    const mastersRole = props.mastersRole ?? new iam.Role(this, 'MastersRole', {
-      assumedBy: new iam.AccountRootPrincipal(),
-    });
 
     // map the IAM role to the `system:masters` group.
     this.awsAuth.addMastersRole(mastersRole);

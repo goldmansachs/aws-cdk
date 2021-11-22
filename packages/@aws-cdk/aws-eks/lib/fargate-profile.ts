@@ -161,8 +161,6 @@ export class FargateProfile extends CoreConstruct implements ITaggable {
       managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSFargatePodExecutionRolePolicy')],
     });
 
-    this.podExecutionRole.grantPassRole(props.cluster.clusterCreationRole);
-
     if (props.subnetSelection && !props.vpc) {
       Annotations.of(this).addWarning('Vpc must be defined to use a custom subnet selection. All private subnets belonging to the EKS cluster will be used by default');
     }
