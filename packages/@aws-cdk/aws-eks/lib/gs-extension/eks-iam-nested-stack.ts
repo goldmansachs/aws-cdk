@@ -6,7 +6,7 @@ import { CfnStack, RemovalPolicy, Token } from '@aws-cdk/core';
 // eslint-disable-next-line
 import { Construct as CoreConstruct } from '@aws-cdk/core';
 
-export interface EKSRolesNestedStackProps {
+export interface EksRolesNestedStackProps {
   templateUrl: string;
   key?: kms.IKey;
   podExecutionRole?: iam.IRole
@@ -14,17 +14,17 @@ export interface EKSRolesNestedStackProps {
   removalPolicy?: RemovalPolicy;
 }
 
-const CLUSTER_CREATION_ROLE_ARN_OUTPUT_NAME = 'Outputs.ClusterCreationRoleArn';
-const MASTERS_ROLE_ARN_OUTPUT_NAME = 'Outputs.MastersRoleArn';
-const EKS_SERVICE_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSServiceArn';
+const CLUSTER_CREATION_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSClusterCreationRoleArn';
+const EKS_SERVICE_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSServiceRoleArn';
+const MASTERS_ROLE_ARN_OUTPUT_NAME = 'Outputs.EKSMastersRoleArn';
 
-export class EKSRolesNestedStack extends CoreConstruct {
+export class EksRolesNestedStack extends CoreConstruct {
   private readonly resource: CfnStack;
 
   constructor(
     scope: CoreConstruct,
     id: string,
-    props: EKSRolesNestedStackProps,
+    props: EksRolesNestedStackProps,
   ) {
     super(scope, id);
 
