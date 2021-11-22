@@ -6,6 +6,7 @@ import { Duration, NestedStack, Stack } from '@aws-cdk/core';
 import * as cr from '@aws-cdk/custom-resources';
 import { NodeProxyAgentLayer } from '@aws-cdk/lambda-layer-node-proxy-agent';
 import { Construct } from 'constructs';
+import { ClusterResourceNestedStack } from './gs-extension/cluster-resource-nested-stack';
 
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
 // eslint-disable-next-line
@@ -18,7 +19,7 @@ export interface ClusterResourceProviderProps {
   /**
    * The IAM role to assume in order to interact with the cluster.
    */
-  readonly adminRole: iam.IRole;
+  readonly clusterCreationRole: iam.IRole;
 
   /**
    * The VPC to provision the functions in.
@@ -48,6 +49,14 @@ export interface ClusterResourceProviderProps {
    * @default - No security group.
    */
   readonly securityGroup?: ec2.ISecurityGroup;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * cluster resource provider instead of the ClusterResourceProvider nested stack
+   *
+   * @default - ClusterResourceProvider is used for nested stack instead of S3 template
+   */
+  readonly clusterResourceProviderTemplateURL?: string;
 }
 
 /**
@@ -62,7 +71,17 @@ export class ClusterResourceProvider extends NestedStack {
   public static getOrCreate(scope: Construct, props: ClusterResourceProviderProps) {
     const stack = Stack.of(scope);
     const uid = '@aws-cdk/aws-eks.ClusterResourceProvider';
-    return stack.node.tryFindChild(uid) as ClusterResourceProvider ?? new ClusterResourceProvider(stack, uid, props);
+
+    if (props.clusterResourceProviderTemplateURL) {
+      return stack.node.tryFindChild(uid) as ClusterResourceNestedStack ?? new ClusterResourceNestedStack(stack, uid, {
+        templateURL: props.clusterResourceProviderTemplateURL,
+        clusterCreationRole: props.clusterCreationRole,
+        subnets: props.subnets,
+        securityGroup: props.securityGroup,
+      });
+    } else {
+      return stack.node.tryFindChild(uid) as ClusterResourceProvider ?? new ClusterResourceProvider(stack, uid, props);
+    }
   }
 
   /**
@@ -113,8 +132,8 @@ export class ClusterResourceProvider extends NestedStack {
       securityGroups: props.securityGroup ? [props.securityGroup] : undefined,
     });
 
-    props.adminRole.grant(onEvent.role!, 'sts:AssumeRole');
-    props.adminRole.grant(isComplete.role!, 'sts:AssumeRole');
+    props.clusterCreationRole.grant(onEvent.role!, 'sts:AssumeRole');
+    props.clusterCreationRole.grant(isComplete.role!, 'sts:AssumeRole');
   }
 
   /**

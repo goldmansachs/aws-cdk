@@ -7,6 +7,7 @@ import { AwsCliLayer } from '@aws-cdk/lambda-layer-awscli';
 import { KubectlLayer } from '@aws-cdk/lambda-layer-kubectl';
 import { Construct } from 'constructs';
 import { ICluster, Cluster } from './cluster';
+import { KubectlNestedStack } from './gs-extension/kubectl-nested-stack';
 
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
 // eslint-disable-next-line
@@ -33,7 +34,16 @@ export class KubectlProvider extends NestedStack {
     const stack = Stack.of(scope);
     let provider = stack.node.tryFindChild(uid) as KubectlProvider;
     if (!provider) {
-      provider = new KubectlProvider(stack, uid, { cluster });
+      if (cluster.kubectlProviderTemplateURL) {
+        return stack.node.tryFindChild(uid) as KubectlNestedStack ?? new KubectlNestedStack(stack, uid, {
+          templateURL: cluster.kubectlProviderTemplateURL,
+          // Not sure why kubectlRole is optional
+          clusterCreationRole: cluster.kubectlRole!,
+          cluster: cluster,
+        });
+      } else {
+        provider = new KubectlProvider(stack, uid, { cluster: cluster });
+      }
     }
 
     return provider;

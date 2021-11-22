@@ -148,8 +148,12 @@ export class FargateProfile extends CoreConstruct implements ITaggable {
     super(scope, id);
 
     const provider = ClusterResourceProvider.getOrCreate(this, {
-      adminRole: props.cluster.adminRole,
+      clusterResourceProviderTemplateURL: props.cluster.clusterResourceProviderTemplateURL,
+      clusterCreationRole: props.cluster.clusterCreationRole,
       onEventLayer: props.cluster.onEventLayer,
+      vpc: props.cluster.vpc!,
+      subnets: props.cluster.kubectlPrivateSubnets!,
+      securityGroup: props.cluster.clusterSecurityGroup!,
     });
 
     this.podExecutionRole = props.podExecutionRole ?? new iam.Role(this, 'PodExecutionRole', {
@@ -181,7 +185,7 @@ export class FargateProfile extends CoreConstruct implements ITaggable {
       serviceToken: provider.serviceToken,
       resourceType: FARGATE_PROFILE_RESOURCE_TYPE,
       properties: {
-        AssumeRoleArn: props.cluster.adminRole.roleArn,
+        AssumeRoleArn: props.cluster.clusterCreationRole.roleArn,
         Config: {
           clusterName: props.cluster.clusterName,
           fargateProfileName: props.fargateProfileName,
