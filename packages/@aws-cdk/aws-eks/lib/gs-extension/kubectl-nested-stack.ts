@@ -26,7 +26,16 @@ export class KubectlNestedStack extends CoreConstruct {
   ) {
     super(scope, id);
 
-    // Validate kubectlPrivateSubnets and clusterHandlerSecurityGroup are set
+    if (!props.cluster.kubectlPrivateSubnets || props.cluster.kubectlPrivateSubnets.length === 0) {
+      throw new Error(`Subnets must be provided to use S3 nested stack template.
+       Ensure placeClusterHandlerInVpc is set to true.`);
+    }
+
+    if (!props.cluster.clusterHandlerSecurityGroup) {
+      throw new Error(`Security group must be provided to use S3 nested stack template.
+       Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
+    }
+
 
     const parentScope = new CoreConstruct(scope, id + '.NestedStack');
 
@@ -35,8 +44,8 @@ export class KubectlNestedStack extends CoreConstruct {
       parameters: {
         ClusterArn: props.cluster.clusterArn,
         ClusterCreationRoleArn: props.clusterCreationRole.roleArn,
-        SubnetIds: Fn.join(',', props.cluster.kubectlPrivateSubnets!.map(subnet => subnet.subnetId)),
-        SecurityGroupIds: Fn.join(',', [props.cluster.clusterHandlerSecurityGroup!.securityGroupId]),
+        SubnetIds: Fn.join(',', props.cluster.kubectlPrivateSubnets.map(subnet => subnet.subnetId)),
+        SecurityGroupIds: Fn.join(',', [props.cluster.clusterHandlerSecurityGroup.securityGroupId]),
       },
     });
     this.resource.applyRemovalPolicy(props.removalPolicy ?? RemovalPolicy.DESTROY);

@@ -27,13 +27,17 @@ export class EksRolesNestedStack extends CoreConstruct {
   ) {
     super(scope, id);
 
+    if (!props.key) {
+      throw new Error(`KMS Key must be provided to use S3 nested stack template.
+       Ensure secretsEncryptionKey is set.`);
+    }
 
     const parentScope = new CoreConstruct(scope, id + '.NestedStack');
 
     this.resource = new CfnStack(parentScope, `${id}.NestedStackResource`, {
       templateUrl: props.templateUrl,
       parameters: {
-        SecretKeyArn: props.key!.keyArn,
+        SecretKeyArn: props.key.keyArn,
       },
     });
     this.resource.applyRemovalPolicy(props.removalPolicy ?? RemovalPolicy.DESTROY);
