@@ -1,5 +1,32 @@
-import * as iam from '@aws-cdk/aws-iam';
+import * as path from 'path';
+import {
+  Arn,
+  CustomResource,
+  CustomResourceProvider,
+  CustomResourceProviderRuntime,
+  IResource,
+  Resource,
+  Token,
+} from '@aws-cdk/core';
 import { Construct } from 'constructs';
+
+const RESOURCE_TYPE = 'Custom::AWSCDKOpenIdConnectProvider';
+
+/**
+ * Represents an IAM OpenID Connect provider.
+ *
+ */
+export interface IOpenIdConnectProvider extends IResource {
+  /**
+   * The Amazon Resource Name (ARN) of the IAM OpenID Connect provider.
+   */
+  readonly openIdConnectProviderArn: string;
+
+  /**
+   * The issuer for OIDC Provider
+   */
+  readonly openIdConnectProviderIssuer: string;
+}
 
 /**
  * Initialization properties for `OpenIdConnectProvider`.
@@ -33,7 +60,31 @@ export interface OpenIdConnectProviderProps {
  *
  * @resource AWS::CloudFormation::CustomResource
  */
-export class OpenIdConnectProvider extends iam.OpenIdConnectProvider {
+export class OpenIdConnectProvider extends Resource implements IOpenIdConnectProvider {
+  /**
+   * Imports an Open ID connect provider from an ARN.
+   * @param scope The definition scope
+   * @param id ID of the construct
+   * @param openIdConnectProviderArn the ARN to import
+   */
+  public static fromOpenIdConnectProviderArn(scope: Construct, id: string, openIdConnectProviderArn: string): IOpenIdConnectProvider {
+    const resourceName = Arn.extractResourceName(openIdConnectProviderArn, 'oidc-provider');
+
+    class Import extends Resource implements IOpenIdConnectProvider {
+      public readonly openIdConnectProviderArn = openIdConnectProviderArn;
+      public readonly openIdConnectProviderIssuer = resourceName;
+    }
+
+    return new Import(scope, id);
+  }
+
+  /**
+   * The Amazon Resource Name (ARN) of the IAM OpenID Connect provider.
+   */
+  public readonly openIdConnectProviderArn: string;
+
+  public readonly openIdConnectProviderIssuer: string;
+
   /**
    * Defines an OpenID Connect provider.
    * @param scope The definition scope
@@ -41,6 +92,8 @@ export class OpenIdConnectProvider extends iam.OpenIdConnectProvider {
    * @param props Initialization properties
    */
   public constructor(scope: Construct, id: string, props: OpenIdConnectProviderProps) {
+    super(scope, id);
+
     /**
      * For some reason EKS isn't validating the root certificate but a intermediate certificate
      * which is one level up in the tree. Because of the a constant thumbprint value has to be
@@ -50,10 +103,37 @@ export class OpenIdConnectProvider extends iam.OpenIdConnectProvider {
 
     const clientIds = ['sts.amazonaws.com'];
 
-    super(scope, id, {
-      url: props.url,
-      thumbprints,
-      clientIds,
+    const resource = new CustomResource(this, 'Resource', {
+      resourceType: RESOURCE_TYPE,
+      serviceToken: this.getOrCreateProvider(),
+      properties: {
+        ClientIDList: clientIds,
+        ThumbprintList: thumbprints,
+        Url: props.url,
+      },
+    });
+
+    this.openIdConnectProviderArn = Token.asString(resource.ref);
+    this.openIdConnectProviderIssuer = Arn.extractResourceName(this.openIdConnectProviderArn, 'oidc-provider');
+  }
+
+  private getOrCreateProvider() {
+    return CustomResourceProvider.getOrCreate(this, RESOURCE_TYPE, {
+      codeDirectory: path.join(__dirname, '..', '..', 'aws-iam', 'lib', 'oidc-provider'),
+      runtime: CustomResourceProviderRuntime.NODEJS_12_X,
+      policyStatements: [
+        {
+          Effect: 'Allow',
+          Resource: '*',
+          Action: [
+            'iam:CreateOpenIDConnectProvider',
+            'iam:DeleteOpenIDConnectProvider',
+            'iam:UpdateOpenIDConnectProviderThumbprint',
+            'iam:AddClientIDToOpenIDConnectProvider',
+            'iam:RemoveClientIDFromOpenIDConnectProvider',
+          ],
+        },
+      ],
     });
   }
 }
