@@ -163,6 +163,7 @@ export class FargateProfile extends CoreConstruct implements ITaggable {
         assumedBy: new iam.ServicePrincipal('eks-fargate-pods.amazonaws.com'),
         managedPolicies: [iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEKSFargatePodExecutionRolePolicy')],
       });
+      this.podExecutionRole.grantPassRole(props.cluster.clusterCreationRole);
     }
 
     if (props.subnetSelection && !props.vpc) {
