@@ -1,5 +1,5 @@
 import { AddToPrincipalPolicyResult, IPrincipal, IRole, OpenIdConnectPrincipal, PolicyStatement, PrincipalPolicyFragment, Role } from '@aws-cdk/aws-iam';
-import { CfnJson, Names } from '@aws-cdk/core';
+import { CfnJson, CfnResource, Names, Stack } from '@aws-cdk/core';
 import { Construct } from 'constructs';
 import { ICluster } from './cluster';
 import { KubernetesManifest } from './k8s-manifest';
@@ -7,6 +7,9 @@ import { KubernetesManifest } from './k8s-manifest';
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
 // eslint-disable-next-line
 import { Construct as CoreConstruct } from '@aws-cdk/core';
+
+// eslint-disable-next-line
+import { CfnJsonProviderNestedStack } from './gs-extension/cfn-json-provider-nested-stack';
 
 /**
  * Options for `ServiceAccount`
@@ -68,12 +71,48 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
     /* Add conditions to the role to improve security. This prevents other pods in the same namespace to assume the role.
     * See documentation: https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html
     */
-    const conditions = new CfnJson(this, 'ConditionJson', {
-      value: {
+    let conditions;
+    if (cluster.cfnJsonProviderTemplateURL) {
+      if (!cluster.kubectlPrivateSubnets || cluster.kubectlPrivateSubnets.length === 0) {
+        throw new Error(`Subnets must be provided to use S3 nested stack template.
+         Ensure placeClusterHandlerInVpc is set to true.`);
+      }
+
+      if (!cluster.clusterHandlerSecurityGroup) {
+        throw new Error(`Security group must be provided to use S3 nested stack template.
+         Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
+      }
+
+      const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
+        templateURL: cluster.cfnJsonProviderTemplateURL,
+        subnets: cluster.kubectlPrivateSubnets,
+        securityGroup: cluster.clusterHandlerSecurityGroup,
+      });
+
+      const jsonString = Stack.of(this).toJsonString({
         [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
         [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
-      },
-    });
+      });
+      conditions = new CfnResource(this, 'ConditionJson', {
+        type: 'Custom::AWSCDKCfnJson',
+        properties: {
+          ServiceToken: cfnJsonProvider.serviceToken,
+          Value: jsonString,
+        },
+      });
+
+      const value = conditions.getAtt('Value');
+
+      (conditions as any).toJSON = () => jsonString;
+      (conditions as any).resolve = () => value;
+    } else {
+      conditions = new CfnJson(this, 'ConditionJson', {
+        value: {
+          [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
+          [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
+        },
+      });
+    }
     const principal = new OpenIdConnectPrincipal(cluster.openIdConnectProvider).withConditions({
       StringEquals: conditions,
     });

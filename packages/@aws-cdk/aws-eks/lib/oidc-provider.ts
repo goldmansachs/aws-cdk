@@ -1,6 +1,8 @@
 import * as path from 'path';
+import * as ec2 from '@aws-cdk/aws-ec2';
 import {
   Arn,
+  CfnResource,
   CustomResource,
   CustomResourceProvider,
   CustomResourceProviderRuntime,
@@ -9,6 +11,9 @@ import {
   Token,
 } from '@aws-cdk/core';
 import { Construct } from 'constructs';
+
+// eslint-disable-next-line
+import { OidcProviderNestedStack } from './gs-extension/oidc-provider-nested-stack';
 
 const RESOURCE_TYPE = 'Custom::AWSCDKOpenIdConnectProvider';
 
@@ -43,6 +48,27 @@ export interface OpenIdConnectProviderProps {
    * aws eks describe-cluster --name %cluster_name% --query "cluster.identity.oidc.issuer" --output text
    */
   readonly url: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * OIDC provider
+   *
+   * @default - Bundled asset Lambda function is used when oidcProviderTemplateURL is not provided
+   */
+  readonly oidcProviderTemplateURL?: string;
+
+  /**
+   * Subnets to use for compiled CFN Lambda functions
+   *
+   * @default - Lambda function not used when oidcProviderTemplateURL is not provided
+   */
+  readonly subnets?: ec2.ISubnet[];
+
+  /**
+   * Security group to use for compiled CFN Lambda functions
+   * @default - Lambda function not used when oidcProviderTemplateURL is not provided
+   */
+  readonly securityGroup?: ec2.ISecurityGroup;
 }
 
 /**
@@ -103,15 +129,34 @@ export class OpenIdConnectProvider extends Resource implements IOpenIdConnectPro
 
     const clientIds = ['sts.amazonaws.com'];
 
-    const resource = new CustomResource(this, 'Resource', {
-      resourceType: RESOURCE_TYPE,
-      serviceToken: this.getOrCreateProvider(),
-      properties: {
-        ClientIDList: clientIds,
-        ThumbprintList: thumbprints,
-        Url: props.url,
-      },
-    });
+    let resource;
+    if (props.oidcProviderTemplateURL) {
+      const oidcProvider = new OidcProviderNestedStack(this, RESOURCE_TYPE, {
+        templateURL: props.oidcProviderTemplateURL,
+        subnets: props.subnets,
+        securityGroup: props.securityGroup,
+      });
+
+      resource = new CfnResource(this, 'Resource', {
+        type: RESOURCE_TYPE,
+        properties: {
+          ServiceToken: oidcProvider.serviceToken,
+          ClientIDList: clientIds,
+          ThumbprintList: thumbprints,
+          Url: props.url,
+        },
+      });
+    } else {
+      resource = new CustomResource(this, 'Resource', {
+        resourceType: RESOURCE_TYPE,
+        serviceToken: this.getOrCreateProvider(),
+        properties: {
+          ClientIDList: clientIds,
+          ThumbprintList: thumbprints,
+          Url: props.url,
+        },
+      });
+    }
 
     this.openIdConnectProviderArn = Token.asString(resource.ref);
     this.openIdConnectProviderIssuer = Arn.extractResourceName(this.openIdConnectProviderArn, 'oidc-provider');
