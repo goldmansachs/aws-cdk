@@ -196,6 +196,14 @@ export interface ICluster extends IResource, ec2.IConnectable {
 
   /**
    * Specify S3 template URL to use a compiled CFN template for the
+   * OIDC provider
+   *
+   * @attribute
+   */
+  readonly oidcProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
    * CfnJson provider
    *
    * @attribute
@@ -204,11 +212,11 @@ export interface ICluster extends IResource, ec2.IConnectable {
 
   /**
    * Specify S3 template URL to use a compiled CFN template for the
-   * OIDC provider
+   * Load Balancer Controller Role
    *
    * @attribute
    */
-  readonly oidcProviderTemplateURL?: string;
+  readonly loadBalancerControllerRoleTemplateURL?: string;
 
   /**
    * Creates a new service account with corresponding IAM Role (IRSA).
@@ -676,6 +684,14 @@ export interface ClusterOptions extends CommonClusterOptions {
 
   /**
    * Specify S3 template URL to use a compiled CFN template for the
+   * OIDC
+   *
+   * @default - Use CDK provided OIDC lambda
+   */
+  readonly oidcProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
    * CfnJson
    *
    * @default - Use CDK provided CfnJson lambda
@@ -684,11 +700,11 @@ export interface ClusterOptions extends CommonClusterOptions {
 
   /**
    * Specify S3 template URL to use a compiled CFN template for the
-   * OIDC
+   * EKS Load Balancer Controller Role
    *
-   * @default - Use CDK provided OIDC lambda
+   * @default - Use CDK provided Load Balancer Controller Role
    */
-  readonly oidcProviderTemplateURL?: string;
+  readonly loadBalancerControllerRoleTemplateURL?: string;
 }
 
 /**
@@ -1326,15 +1342,21 @@ export class Cluster extends ClusterBase {
 
   /**
    * Specify S3 template URL to use a compiled CFN template for the
+   * OIDC Provider
+   */
+  public readonly oidcProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
    * CfnJson
    */
   public readonly cfnJsonProviderTemplateURL?: string;
 
   /**
    * Specify S3 template URL to use a compiled CFN template for the
-   * OIDC Provider
+   * Load Balancer Controller Role
    */
-  public readonly oidcProviderTemplateURL?: string;
+  public readonly loadBalancerControllerRoleTemplateURL?: string;
 
   /**
    * Generated EKS Fargate pod execution role when using compiled CFN template
@@ -1390,8 +1412,9 @@ export class Cluster extends ClusterBase {
     this.clusterResourceProviderTemplateURL = props.clusterResourceProviderTemplateURL;
     this.kubectlProviderTemplateURL = props.kubectlProviderTemplateURL;
     this.eksRolesTemplateURL = props.eksRolesTemplateURL;
-    this.cfnJsonProviderTemplateURL = props.cfnJsonProviderTemplateURL;
     this.oidcProviderTemplateURL = props.oidcProviderTemplateURL;
+    this.cfnJsonProviderTemplateURL = props.cfnJsonProviderTemplateURL;
+    this.loadBalancerControllerRoleTemplateURL = props.loadBalancerControllerRoleTemplateURL;
 
     const stack = Stack.of(this);
 
@@ -1408,9 +1431,9 @@ export class Cluster extends ClusterBase {
     // course)
     let mastersRole: iam.IRole;
 
-    if (props.eksRolesTemplateURL) {
+    if (this.eksRolesTemplateURL) {
       this.eksRolesNestedStack = new EksRolesNestedStack(this, 'EksIam', {
-        templateUrl: props.eksRolesTemplateURL,
+        templateUrl: this.eksRolesTemplateURL,
         key: props.secretsEncryptionKey,
       });
 
@@ -1515,7 +1538,7 @@ export class Cluster extends ClusterBase {
       subnets: placeClusterHandlerInVpc ? privateSubnets : undefined,
       clusterHandlerSecurityGroup: this.clusterHandlerSecurityGroup,
       onEventLayer: this.onEventLayer,
-      clusterResourceProviderTemplateURL: props.clusterResourceProviderTemplateURL,
+      clusterResourceProviderTemplateURL: this.clusterResourceProviderTemplateURL,
       clusterCreationRoleArn,
     });
 

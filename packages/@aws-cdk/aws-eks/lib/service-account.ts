@@ -1,5 +1,5 @@
 import { AddToPrincipalPolicyResult, IPrincipal, IRole, OpenIdConnectPrincipal, PolicyStatement, PrincipalPolicyFragment, Role } from '@aws-cdk/aws-iam';
-import { CfnJson, CfnResource, Names, Stack } from '@aws-cdk/core';
+import { CfnJson, Names } from '@aws-cdk/core';
 import { Construct } from 'constructs';
 import { ICluster } from './cluster';
 import { KubernetesManifest } from './k8s-manifest';
@@ -9,7 +9,9 @@ import { KubernetesManifest } from './k8s-manifest';
 import { Construct as CoreConstruct } from '@aws-cdk/core';
 
 // eslint-disable-next-line
-import { CfnJsonProviderNestedStack } from './gs-extension/cfn-json-provider-nested-stack';
+// import { CfnJsonProviderNestedStack } from './gs-extension/cfn-json-provider-nested-stack';
+// eslint-disable-next-line
+import { LoadBalancerControllerNestedStack } from './gs-extension/load-balancer-controller-nested-stack';
 
 /**
  * Options for `ServiceAccount`
@@ -26,6 +28,22 @@ export interface ServiceAccountOptions {
    * @default "default"
    */
   readonly namespace?: string;
+
+  /**
+ * Specify S3 template URL to use a compiled CFN template for the
+ * CfnJson
+ *
+ * @default - Use CDK provided CfnJson lambda
+ */
+  readonly cfnJsonProviderTemplateURL?: string;
+
+  /**
+  * Specify S3 template URL to use a compiled CFN template for the
+  * EKS Load Balancer Controller Role
+  *
+  * @default - Use CDK provided Load Balancer Controller Role
+  */
+  readonly loadBalancerControllerRoleTemplateURL?: string;
 }
 
 /**
@@ -47,9 +65,9 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
    */
   public readonly role: IRole;
 
-  public readonly assumeRoleAction: string;
-  public readonly grantPrincipal: IPrincipal;
-  public readonly policyFragment: PrincipalPolicyFragment;
+  public readonly assumeRoleAction!: string;
+  public readonly grantPrincipal!: IPrincipal;
+  public readonly policyFragment!: PrincipalPolicyFragment;
 
   /**
    * The name of the service account.
@@ -61,8 +79,14 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
    */
   public readonly serviceAccountNamespace: string;
 
+  private readonly cfnJsonProviderTemplateURL?: string;
+  private readonly loadBalancerControllerRoleTemplateURL?: string;
+
   constructor(scope: Construct, id: string, props: ServiceAccountProps) {
     super(scope, id);
+
+    this.cfnJsonProviderTemplateURL = props.cfnJsonProviderTemplateURL;
+    this.loadBalancerControllerRoleTemplateURL = props.loadBalancerControllerRoleTemplateURL;
 
     const { cluster } = props;
     this.serviceAccountName = props.name ?? Names.uniqueId(this).toLowerCase();
@@ -72,55 +96,63 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
     * See documentation: https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html
     */
     let conditions;
-    if (cluster.cfnJsonProviderTemplateURL) {
-      if (!cluster.kubectlPrivateSubnets || cluster.kubectlPrivateSubnets.length === 0) {
-        throw new Error(`Subnets must be provided to use S3 nested stack template.
-         Ensure placeClusterHandlerInVpc is set to true.`);
-      }
+    if (this.cfnJsonProviderTemplateURL && this.loadBalancerControllerRoleTemplateURL) {
+      // if (!cluster.kubectlPrivateSubnets || cluster.kubectlPrivateSubnets.length === 0) {
+      //   throw new Error(`Subnets must be provided to use S3 nested stack template.
+      //    Ensure placeClusterHandlerInVpc is set to true.`);
+      // }
 
-      if (!cluster.clusterHandlerSecurityGroup) {
-        throw new Error(`Security group must be provided to use S3 nested stack template.
-         Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
-      }
+      // if (!cluster.clusterHandlerSecurityGroup) {
+      //   throw new Error(`Security group must be provided to use S3 nested stack template.
+      //    Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
+      // }
 
-      const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
-        templateURL: cluster.cfnJsonProviderTemplateURL,
+      // const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
+      //   templateURL: this.cfnJsonProviderTemplateURL,
+      //   subnets: cluster.kubectlPrivateSubnets,
+      //   securityGroup: cluster.clusterHandlerSecurityGroup,
+      // });
+
+      // const jsonString = Stack.of(this).toJsonString({
+      //   [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
+      //   [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
+      // });
+      // conditions = new CfnResource(this, 'ConditionJson', {
+      //   type: 'Custom::AWSCDKCfnJson',
+      //   properties: {
+      //     ServiceToken: cfnJsonProvider.serviceToken,
+      //     Value: jsonString,
+      //   },
+      // });
+
+      // const value = conditions.getAtt('Value');
+
+      // (conditions as any).toJSON = () => jsonString;
+      // (conditions as any).resolve = () => value;
+
+      const loadBalancerControllerStack = new LoadBalancerControllerNestedStack(this, 'LoadBalancerControllerRoleProvider', {
+        templateURL: this.loadBalancerControllerRoleTemplateURL,
+        openIdConnectProviderRef: cluster.openIdConnectProvider.openIdConnectProviderArn,
         subnets: cluster.kubectlPrivateSubnets,
         securityGroup: cluster.clusterHandlerSecurityGroup,
       });
-
-      const jsonString = Stack.of(this).toJsonString({
-        [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
-        [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
-      });
-      conditions = new CfnResource(this, 'ConditionJson', {
-        type: 'Custom::AWSCDKCfnJson',
-        properties: {
-          ServiceToken: cfnJsonProvider.serviceToken,
-          Value: jsonString,
-        },
-      });
-
-      const value = conditions.getAtt('Value');
-
-      (conditions as any).toJSON = () => jsonString;
-      (conditions as any).resolve = () => value;
+      this.role = Role.fromRoleArn(this, 'Role', loadBalancerControllerStack.eksLoadBalancerControllerRoleArn);
     } else {
+      // TODO: Handle case where customer uses a custom ServiceAccount
       conditions = new CfnJson(this, 'ConditionJson', {
         value: {
           [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
           [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
         },
       });
+      const principal = new OpenIdConnectPrincipal(cluster.openIdConnectProvider).withConditions({
+        StringEquals: conditions,
+      });
+      this.role = new Role(this, 'Role', { assumedBy: principal });
+      this.assumeRoleAction = this.role.assumeRoleAction;
+      this.grantPrincipal = this.role.grantPrincipal;
+      this.policyFragment = this.role.policyFragment;
     }
-    const principal = new OpenIdConnectPrincipal(cluster.openIdConnectProvider).withConditions({
-      StringEquals: conditions,
-    });
-    this.role = new Role(this, 'Role', { assumedBy: principal });
-
-    this.assumeRoleAction = this.role.assumeRoleAction;
-    this.grantPrincipal = this.role.grantPrincipal;
-    this.policyFragment = this.role.policyFragment;
 
     // Note that we cannot use `cluster.addManifest` here because that would create the manifest
     // constrct in the scope of the cluster stack, which might be a different stack than this one.
@@ -154,6 +186,10 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
   }
 
   public addToPrincipalPolicy(statement: PolicyStatement): AddToPrincipalPolicyResult {
+    if (this.cfnJsonProviderTemplateURL && this.loadBalancerControllerRoleTemplateURL) {
+      throw new Error("Cannot call 'addToPrincipalPolicy' on Load Balancer Controller imported role");
+    }
+
     return this.role.addToPrincipalPolicy(statement);
   }
 }

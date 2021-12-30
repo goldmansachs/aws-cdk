@@ -195,18 +195,36 @@ export class AlbController extends CoreConstruct {
   public constructor(scope: Construct, id: string, props: AlbControllerProps) {
     super(scope, id);
 
+    if (
+      (props.cluster.cfnJsonProviderTemplateURL && !props.cluster.loadBalancerControllerRoleTemplateURL) ||
+      (props.cluster.loadBalancerControllerRoleTemplateURL && !props.cluster.cfnJsonProviderTemplateURL)
+    ) {
+      throw new Error("'loadBalancerControllerRoleTemplateURL' and 'cfnJsonProviderTemplateURL' must specified together.");
+    }
+
     const namespace = 'kube-system';
-    const serviceAccount = new ServiceAccount(this, 'alb-sa', { namespace, name: 'aws-load-balancer-controller', cluster: props.cluster });
+    const serviceAccount = new ServiceAccount(this, 'alb-sa', {
+      namespace,
+      name: 'aws-load-balancer-controller',
+      cluster: props.cluster,
+      cfnJsonProviderTemplateURL: props.cluster.cfnJsonProviderTemplateURL,
+      loadBalancerControllerRoleTemplateURL: props.cluster.loadBalancerControllerRoleTemplateURL,
+    });
 
     if (props.version.custom && !props.policy) {
       throw new Error("'albControllerOptions.policy' is required when using a custom controller version");
     }
 
-    // https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/installation/#iam-permissions
-    const policy: any = props.policy ?? JSON.parse(fs.readFileSync(path.join(__dirname, 'addons', `alb-iam_policy-${props.version.version}.json`), 'utf8'));
+    if (!(props.cluster.cfnJsonProviderTemplateURL && props.cluster.loadBalancerControllerRoleTemplateURL)) {
+      // Skip adding policy to role. Calling "addToPrincipalPolicy" will throw an error
+      // since the role is imported from a template
 
-    for (const statement of policy.Statement) {
-      serviceAccount.addToPrincipalPolicy(iam.PolicyStatement.fromJson(statement));
+      // https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/installation/#iam-permissions
+      const policy: any = props.policy ?? JSON.parse(fs.readFileSync(path.join(__dirname, 'addons', `alb-iam_policy-${props.version.version}.json`), 'utf8'));
+
+      for (const statement of policy.Statement) {
+        serviceAccount.addToPrincipalPolicy(iam.PolicyStatement.fromJson(statement));
+      }
     }
 
     // https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/installation/#add-controller-to-cluster

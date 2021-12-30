@@ -2,7 +2,6 @@ import * as path from 'path';
 import * as ec2 from '@aws-cdk/aws-ec2';
 import {
   Arn,
-  CfnResource,
   CustomResource,
   CustomResourceProvider,
   CustomResourceProviderRuntime,
@@ -129,7 +128,7 @@ export class OpenIdConnectProvider extends Resource implements IOpenIdConnectPro
 
     const clientIds = ['sts.amazonaws.com'];
 
-    let resource;
+    let serviceToken;
     if (props.oidcProviderTemplateURL) {
       const oidcProvider = new OidcProviderNestedStack(this, RESOURCE_TYPE, {
         templateURL: props.oidcProviderTemplateURL,
@@ -137,26 +136,30 @@ export class OpenIdConnectProvider extends Resource implements IOpenIdConnectPro
         securityGroup: props.securityGroup,
       });
 
-      resource = new CfnResource(this, 'Resource', {
-        type: RESOURCE_TYPE,
-        properties: {
-          ServiceToken: oidcProvider.serviceToken,
-          ClientIDList: clientIds,
-          ThumbprintList: thumbprints,
-          Url: props.url,
-        },
-      });
+      serviceToken = oidcProvider.serviceToken;
+
+      // resource = new CfnResource(this, 'Resource', {
+      //   type: RESOURCE_TYPE,
+      //   properties: {
+      //     ServiceToken: oidcProvider.serviceToken,
+      //     ClientIDList: clientIds,
+      //     ThumbprintList: thumbprints,
+      //     Url: props.url,
+      //   },
+      // });
     } else {
-      resource = new CustomResource(this, 'Resource', {
-        resourceType: RESOURCE_TYPE,
-        serviceToken: this.getOrCreateProvider(),
-        properties: {
-          ClientIDList: clientIds,
-          ThumbprintList: thumbprints,
-          Url: props.url,
-        },
-      });
+      serviceToken = this.getOrCreateProvider();
     }
+
+    const resource = new CustomResource(this, 'Resource', {
+      resourceType: RESOURCE_TYPE,
+      serviceToken,
+      properties: {
+        ClientIDList: clientIds,
+        ThumbprintList: thumbprints,
+        Url: props.url,
+      },
+    });
 
     this.openIdConnectProviderArn = Token.asString(resource.ref);
     this.openIdConnectProviderIssuer = Arn.extractResourceName(this.openIdConnectProviderArn, 'oidc-provider');
