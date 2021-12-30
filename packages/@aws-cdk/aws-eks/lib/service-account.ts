@@ -97,39 +97,6 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
     */
     let conditions;
     if (this.cfnJsonProviderTemplateURL && this.loadBalancerControllerRoleTemplateURL) {
-      // if (!cluster.kubectlPrivateSubnets || cluster.kubectlPrivateSubnets.length === 0) {
-      //   throw new Error(`Subnets must be provided to use S3 nested stack template.
-      //    Ensure placeClusterHandlerInVpc is set to true.`);
-      // }
-
-      // if (!cluster.clusterHandlerSecurityGroup) {
-      //   throw new Error(`Security group must be provided to use S3 nested stack template.
-      //    Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
-      // }
-
-      // const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
-      //   templateURL: this.cfnJsonProviderTemplateURL,
-      //   subnets: cluster.kubectlPrivateSubnets,
-      //   securityGroup: cluster.clusterHandlerSecurityGroup,
-      // });
-
-      // const jsonString = Stack.of(this).toJsonString({
-      //   [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
-      //   [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
-      // });
-      // conditions = new CfnResource(this, 'ConditionJson', {
-      //   type: 'Custom::AWSCDKCfnJson',
-      //   properties: {
-      //     ServiceToken: cfnJsonProvider.serviceToken,
-      //     Value: jsonString,
-      //   },
-      // });
-
-      // const value = conditions.getAtt('Value');
-
-      // (conditions as any).toJSON = () => jsonString;
-      // (conditions as any).resolve = () => value;
-
       const loadBalancerControllerStack = new LoadBalancerControllerNestedStack(this, 'LoadBalancerControllerRoleProvider', {
         templateURL: this.loadBalancerControllerRoleTemplateURL,
         openIdConnectProviderRef: cluster.openIdConnectProvider.openIdConnectProviderArn,
