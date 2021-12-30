@@ -28,7 +28,7 @@ export class EksRolesNestedStack extends CoreConstruct {
     super(scope, id);
 
     if (!props.key) {
-      throw new Error(`KMS Key must be provided to use S3 nested stack template.
+      throw new Error(`KMS Key must be provided to use "eksRolesTemplateURL" S3 nested stack template.
        Ensure secretsEncryptionKey is set.`);
     }
 

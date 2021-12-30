@@ -195,13 +195,6 @@ export class AlbController extends CoreConstruct {
   public constructor(scope: Construct, id: string, props: AlbControllerProps) {
     super(scope, id);
 
-    if (
-      (props.cluster.cfnJsonProviderTemplateURL && !props.cluster.loadBalancerControllerRoleTemplateURL) ||
-      (props.cluster.loadBalancerControllerRoleTemplateURL && !props.cluster.cfnJsonProviderTemplateURL)
-    ) {
-      throw new Error("'loadBalancerControllerRoleTemplateURL' and 'cfnJsonProviderTemplateURL' must be specified together.");
-    }
-
     const namespace = 'kube-system';
     const serviceAccount = new ServiceAccount(this, 'alb-sa', {
       namespace,

@@ -9,7 +9,9 @@ import { KubernetesManifest } from './k8s-manifest';
 import { Construct as CoreConstruct } from '@aws-cdk/core';
 
 // eslint-disable-next-line
-// import { CfnJsonProviderNestedStack } from './gs-extension/cfn-json-provider-nested-stack';
+import { CfnJsonProviderNestedStack } from './gs-extension/cfn-json-provider-nested-stack';
+// eslint-disable-next-line
+import { CfnJsonCustomResource } from './gs-extension/cfn-json-custom-resource';
 // eslint-disable-next-line
 import { LoadBalancerControllerNestedStack } from './gs-extension/load-balancer-controller-nested-stack';
 
@@ -92,11 +94,7 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
     this.serviceAccountName = props.name ?? Names.uniqueId(this).toLowerCase();
     this.serviceAccountNamespace = props.namespace ?? 'default';
 
-    /* Add conditions to the role to improve security. This prevents other pods in the same namespace to assume the role.
-    * See documentation: https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html
-    */
-    let conditions;
-    if (this.cfnJsonProviderTemplateURL && this.loadBalancerControllerRoleTemplateURL) {
+    if (this.loadBalancerControllerRoleTemplateURL) {
       const loadBalancerControllerStack = new LoadBalancerControllerNestedStack(this, 'LoadBalancerControllerRoleProvider', {
         templateURL: this.loadBalancerControllerRoleTemplateURL,
         openIdConnectProviderRef: cluster.openIdConnectProvider.openIdConnectProviderArn,
@@ -105,13 +103,32 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
       });
       this.role = Role.fromRoleArn(this, 'Role', loadBalancerControllerStack.eksLoadBalancerControllerRoleArn);
     } else {
-      // TODO: Handle case where customer uses a custom ServiceAccount
-      conditions = new CfnJson(this, 'ConditionJson', {
-        value: {
-          [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
-          [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
-        },
-      });
+      const conditionsValue = {
+        [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:aud`]: 'sts.amazonaws.com',
+        [`${cluster.openIdConnectProvider.openIdConnectProviderIssuer}:sub`]: `system:serviceaccount:${this.serviceAccountNamespace}:${this.serviceAccountName}`,
+      };
+
+      let conditions;
+      if (this.cfnJsonProviderTemplateURL) {
+        const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
+          templateURL: this.cfnJsonProviderTemplateURL,
+          subnets: cluster.kubectlPrivateSubnets,
+          securityGroup: cluster.clusterHandlerSecurityGroup,
+        });
+
+        conditions = new CfnJsonCustomResource(this, 'ConditionJson', {
+          serviceToken: cfnJsonProvider.serviceToken,
+          value: conditionsValue,
+        });
+      } else {
+        /* Add conditions to the role to improve security. This prevents other pods in the same namespace to assume the role.
+        * See documentation: https://docs.aws.amazon.com/eks/latest/userguide/create-service-account-iam-policy-and-role.html
+        */
+        conditions = new CfnJson(this, 'ConditionJson', {
+          value: conditionsValue,
+        });
+      }
+
       const principal = new OpenIdConnectPrincipal(cluster.openIdConnectProvider).withConditions({
         StringEquals: conditions,
       });
@@ -153,7 +170,7 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
   }
 
   public addToPrincipalPolicy(statement: PolicyStatement): AddToPrincipalPolicyResult {
-    if (this.cfnJsonProviderTemplateURL && this.loadBalancerControllerRoleTemplateURL) {
+    if (this.loadBalancerControllerRoleTemplateURL) {
       throw new Error("Cannot call 'addToPrincipalPolicy' on Load Balancer Controller imported role");
     }
 

@@ -26,12 +26,12 @@ export class OidcProviderNestedStack extends CoreConstruct {
     super(scope, id);
 
     if (!props.subnets || props.subnets.length === 0) {
-      throw new Error(`Subnets must be provided to use S3 nested stack template.
+      throw new Error(`Subnets must be provided to use "oidcProviderTemplateURL" S3 nested stack template.
        Ensure placeClusterHandlerInVpc is set to true.`);
     }
 
     if (!props.securityGroup) {
-      throw new Error(`Security group must be provided to use S3 nested stack template.
+      throw new Error(`Security group must be provided to use "oidcProviderTemplateURL" S3 nested stack template.
        Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
     }
 
