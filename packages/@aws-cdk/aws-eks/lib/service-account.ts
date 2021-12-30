@@ -81,13 +81,11 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
    */
   public readonly serviceAccountNamespace: string;
 
-  private readonly cfnJsonProviderTemplateURL?: string;
   private readonly loadBalancerControllerRoleTemplateURL?: string;
 
   constructor(scope: Construct, id: string, props: ServiceAccountProps) {
     super(scope, id);
 
-    this.cfnJsonProviderTemplateURL = props.cfnJsonProviderTemplateURL;
     this.loadBalancerControllerRoleTemplateURL = props.loadBalancerControllerRoleTemplateURL;
 
     const { cluster } = props;
@@ -109,9 +107,9 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
       };
 
       let conditions;
-      if (this.cfnJsonProviderTemplateURL) {
+      if (props.cluster.cfnJsonProviderTemplateURL) {
         const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
-          templateURL: this.cfnJsonProviderTemplateURL,
+          templateURL: props.cluster.cfnJsonProviderTemplateURL,
           subnets: cluster.kubectlPrivateSubnets,
           securityGroup: cluster.clusterHandlerSecurityGroup,
         });

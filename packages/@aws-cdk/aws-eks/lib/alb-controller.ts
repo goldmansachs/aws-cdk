@@ -200,7 +200,6 @@ export class AlbController extends CoreConstruct {
       namespace,
       name: 'aws-load-balancer-controller',
       cluster: props.cluster,
-      cfnJsonProviderTemplateURL: props.cluster.cfnJsonProviderTemplateURL,
       loadBalancerControllerRoleTemplateURL: props.cluster.loadBalancerControllerRoleTemplateURL,
     });
 
