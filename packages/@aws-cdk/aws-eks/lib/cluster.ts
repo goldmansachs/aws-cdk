@@ -216,7 +216,7 @@ export interface ICluster extends IResource, ec2.IConnectable {
    *
    * @attribute
    */
-  readonly loadBalancerControllerRoleTemplateURL?: string;
+  readonly loadBalancerControllerTemplateURL?: string;
 
   /**
    * Creates a new service account with corresponding IAM Role (IRSA).
@@ -704,7 +704,7 @@ export interface ClusterOptions extends CommonClusterOptions {
    *
    * @default - Use CDK provided Load Balancer Controller Role
    */
-  readonly loadBalancerControllerRoleTemplateURL?: string;
+  readonly loadBalancerControllerTemplateURL?: string;
 }
 
 /**
@@ -1356,7 +1356,7 @@ export class Cluster extends ClusterBase {
    * Specify S3 template URL to use a compiled CFN template for the
    * Load Balancer Controller Role
    */
-  public readonly loadBalancerControllerRoleTemplateURL?: string;
+  public readonly loadBalancerControllerTemplateURL?: string;
 
   /**
    * Generated EKS Fargate pod execution role when using compiled CFN template
@@ -1414,7 +1414,7 @@ export class Cluster extends ClusterBase {
     this.eksRolesTemplateURL = props.eksRolesTemplateURL;
     this.oidcProviderTemplateURL = props.oidcProviderTemplateURL;
     this.cfnJsonProviderTemplateURL = props.cfnJsonProviderTemplateURL;
-    this.loadBalancerControllerRoleTemplateURL = props.loadBalancerControllerRoleTemplateURL;
+    this.loadBalancerControllerTemplateURL = props.loadBalancerControllerTemplateURL;
 
     const stack = Stack.of(this);
 

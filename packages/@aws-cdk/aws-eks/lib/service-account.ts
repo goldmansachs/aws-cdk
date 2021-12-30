@@ -45,7 +45,7 @@ export interface ServiceAccountOptions {
   *
   * @default - Use CDK provided Load Balancer Controller Role
   */
-  readonly loadBalancerControllerRoleTemplateURL?: string;
+  readonly loadBalancerControllerTemplateURL?: string;
 }
 
 /**
@@ -81,20 +81,20 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
    */
   public readonly serviceAccountNamespace: string;
 
-  private readonly loadBalancerControllerRoleTemplateURL?: string;
+  private readonly loadBalancerControllerTemplateURL?: string;
 
   constructor(scope: Construct, id: string, props: ServiceAccountProps) {
     super(scope, id);
 
-    this.loadBalancerControllerRoleTemplateURL = props.loadBalancerControllerRoleTemplateURL;
+    this.loadBalancerControllerTemplateURL = props.loadBalancerControllerTemplateURL;
 
     const { cluster } = props;
     this.serviceAccountName = props.name ?? Names.uniqueId(this).toLowerCase();
     this.serviceAccountNamespace = props.namespace ?? 'default';
 
-    if (this.loadBalancerControllerRoleTemplateURL) {
+    if (this.loadBalancerControllerTemplateURL) {
       const loadBalancerControllerStack = new LoadBalancerControllerNestedStack(this, 'LoadBalancerControllerRoleProvider', {
-        templateURL: this.loadBalancerControllerRoleTemplateURL,
+        templateURL: this.loadBalancerControllerTemplateURL,
         openIdConnectProviderRef: cluster.openIdConnectProvider.openIdConnectProviderArn,
         subnets: cluster.kubectlPrivateSubnets,
         securityGroup: cluster.clusterHandlerSecurityGroup,
@@ -168,7 +168,7 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
   }
 
   public addToPrincipalPolicy(statement: PolicyStatement): AddToPrincipalPolicyResult {
-    if (this.loadBalancerControllerRoleTemplateURL) {
+    if (this.loadBalancerControllerTemplateURL) {
       throw new Error("Cannot call 'addToPrincipalPolicy' on Load Balancer Controller imported role");
     }
 

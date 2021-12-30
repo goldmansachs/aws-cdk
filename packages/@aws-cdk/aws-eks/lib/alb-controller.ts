@@ -200,14 +200,14 @@ export class AlbController extends CoreConstruct {
       namespace,
       name: 'aws-load-balancer-controller',
       cluster: props.cluster,
-      loadBalancerControllerRoleTemplateURL: props.cluster.loadBalancerControllerRoleTemplateURL,
+      loadBalancerControllerTemplateURL: props.cluster.loadBalancerControllerTemplateURL,
     });
 
     if (props.version.custom && !props.policy) {
       throw new Error("'albControllerOptions.policy' is required when using a custom controller version");
     }
 
-    if (!(props.cluster.cfnJsonProviderTemplateURL && props.cluster.loadBalancerControllerRoleTemplateURL)) {
+    if (!(props.cluster.cfnJsonProviderTemplateURL && props.cluster.loadBalancerControllerTemplateURL)) {
       // Skip adding policy to role. Calling "addToPrincipalPolicy" will throw an error
       // since the role is imported from a template
 
