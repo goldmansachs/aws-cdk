@@ -199,7 +199,7 @@ export class AlbController extends CoreConstruct {
       (props.cluster.cfnJsonProviderTemplateURL && !props.cluster.loadBalancerControllerRoleTemplateURL) ||
       (props.cluster.loadBalancerControllerRoleTemplateURL && !props.cluster.cfnJsonProviderTemplateURL)
     ) {
-      throw new Error("'loadBalancerControllerRoleTemplateURL' and 'cfnJsonProviderTemplateURL' must specified together.");
+      throw new Error("'loadBalancerControllerRoleTemplateURL' and 'cfnJsonProviderTemplateURL' must be specified together.");
     }
 
     const namespace = 'kube-system';
