@@ -702,6 +702,15 @@ export interface ClusterOptions extends CommonClusterOptions {
    * Specify S3 template URL to use a compiled CFN template for the
    * EKS Load Balancer Controller Role
    *
+   * OpenIdConnectProvider needs Cluster
+   * ServiceAccount needs CfnJson which needs OpenIdConnectProvider
+   *
+   * Ordering for resource creation:
+   * 1. Cluster
+   * 2. OpenIdConnectProvider
+   * 3. CfnJson
+   * 4. ServiceAccount
+   *
    * @default - Use CDK provided Load Balancer Controller Role
    */
   readonly loadBalancerControllerTemplateURL?: string;
