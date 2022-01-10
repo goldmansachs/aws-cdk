@@ -93,7 +93,7 @@ export interface ICluster extends IResource, ec2.IConnectable {
   /**
    * The Open ID Connect Provider of the cluster used to configure Service Accounts.
    */
-  readonly openIdConnectProvider: iam.IOpenIdConnectProvider;
+  readonly openIdConnectProvider: OpenIdConnectProvider;
 
   /**
    * An IAM role that can perform kubectl operations against this cluster.
@@ -193,6 +193,30 @@ export interface ICluster extends IResource, ec2.IConnectable {
    * @attribute
    */
   readonly eksRolesTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * OIDC provider
+   *
+   * @attribute
+   */
+  readonly oidcProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * CfnJson provider
+   *
+   * @attribute
+   */
+  readonly cfnJsonProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * Load Balancer Controller Role
+   *
+   * @attribute
+   */
+  readonly loadBalancerControllerTemplateURL?: string;
 
   /**
    * Creates a new service account with corresponding IAM Role (IRSA).
@@ -343,12 +367,14 @@ export interface ClusterAttributes {
   readonly kubectlPrivateSubnetIds?: string[];
 
   /**
+   * [disable-awslint:ref-via-interface]
+   *
    * An Open ID Connect provider for this cluster that can be used to configure service accounts.
    * You can either import an existing provider using `iam.OpenIdConnectProvider.fromProviderArn`,
    * or create a new provider using `new eks.OpenIdConnectProvider`
    * @default - if not specified `cluster.openIdConnectProvider` and `cluster.addServiceAccount` will throw an error.
    */
-  readonly openIdConnectProvider?: iam.IOpenIdConnectProvider;
+  readonly openIdConnectProvider?: OpenIdConnectProvider;
 
   /**
    * An AWS Lambda Layer which includes `kubectl`, Helm and the AWS CLI. This layer
@@ -655,6 +681,39 @@ export interface ClusterOptions extends CommonClusterOptions {
    * @default - Default roles/roles passed into Construct are used
    */
   readonly eksRolesTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * OIDC
+   *
+   * @default - Use CDK provided OIDC lambda
+   */
+  readonly oidcProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * CfnJson
+   *
+   * @default - Use CDK provided CfnJson lambda
+   */
+  readonly cfnJsonProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * EKS Load Balancer Controller Role
+   *
+   * OpenIdConnectProvider needs Cluster
+   * ServiceAccount needs CfnJson which needs OpenIdConnectProvider
+   *
+   * Ordering for resource creation:
+   * 1. Cluster
+   * 2. OpenIdConnectProvider
+   * 3. CfnJson
+   * 4. ServiceAccount
+   *
+   * @default - Use CDK provided Load Balancer Controller Role
+   */
+  readonly loadBalancerControllerTemplateURL?: string;
 }
 
 /**
@@ -866,7 +925,7 @@ abstract class ClusterBase extends Resource implements ICluster {
   public abstract readonly kubectlMemory?: Size;
   public abstract readonly clusterHandlerSecurityGroup?: ec2.ISecurityGroup;
   public abstract readonly prune: boolean;
-  public abstract readonly openIdConnectProvider: iam.IOpenIdConnectProvider;
+  public abstract readonly openIdConnectProvider: OpenIdConnectProvider;
   public abstract readonly awsAuth: AwsAuth;
 
   private _spotInterruptHandler?: HelmChart;
@@ -1232,7 +1291,7 @@ export class Cluster extends ClusterBase {
   /**
    * an Open ID Connect Provider instance
    */
-  private _openIdConnectProvider?: iam.IOpenIdConnectProvider;
+  private _openIdConnectProvider?: OpenIdConnectProvider;
 
   /**
    * The AWS Lambda layer that contains `kubectl`, `helm` and the AWS CLI. If
@@ -1291,6 +1350,24 @@ export class Cluster extends ClusterBase {
   public readonly eksRolesTemplateURL?: string;
 
   /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * OIDC Provider
+   */
+  public readonly oidcProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * CfnJson
+   */
+  public readonly cfnJsonProviderTemplateURL?: string;
+
+  /**
+   * Specify S3 template URL to use a compiled CFN template for the
+   * Load Balancer Controller Role
+   */
+  public readonly loadBalancerControllerTemplateURL?: string;
+
+  /**
    * Generated EKS Fargate pod execution role when using compiled CFN template
    * for EKS roles
    */
@@ -1344,6 +1421,9 @@ export class Cluster extends ClusterBase {
     this.clusterResourceProviderTemplateURL = props.clusterResourceProviderTemplateURL;
     this.kubectlProviderTemplateURL = props.kubectlProviderTemplateURL;
     this.eksRolesTemplateURL = props.eksRolesTemplateURL;
+    this.oidcProviderTemplateURL = props.oidcProviderTemplateURL;
+    this.cfnJsonProviderTemplateURL = props.cfnJsonProviderTemplateURL;
+    this.loadBalancerControllerTemplateURL = props.loadBalancerControllerTemplateURL;
 
     const stack = Stack.of(this);
 
@@ -1360,9 +1440,9 @@ export class Cluster extends ClusterBase {
     // course)
     let mastersRole: iam.IRole;
 
-    if (props.eksRolesTemplateURL) {
+    if (this.eksRolesTemplateURL) {
       this.eksRolesNestedStack = new EksRolesNestedStack(this, 'EksIam', {
-        templateUrl: props.eksRolesTemplateURL,
+        templateUrl: this.eksRolesTemplateURL,
         key: props.secretsEncryptionKey,
       });
 
@@ -1467,7 +1547,7 @@ export class Cluster extends ClusterBase {
       subnets: placeClusterHandlerInVpc ? privateSubnets : undefined,
       clusterHandlerSecurityGroup: this.clusterHandlerSecurityGroup,
       onEventLayer: this.onEventLayer,
-      clusterResourceProviderTemplateURL: props.clusterResourceProviderTemplateURL,
+      clusterResourceProviderTemplateURL: this.clusterResourceProviderTemplateURL,
       clusterCreationRoleArn,
     });
 
@@ -1715,10 +1795,13 @@ export class Cluster extends ClusterBase {
    *
    * A provider will only be defined if this property is accessed (lazy initialization).
    */
-  public get openIdConnectProvider() {
+  public get openIdConnectProvider(): OpenIdConnectProvider {
     if (!this._openIdConnectProvider) {
       this._openIdConnectProvider = new OpenIdConnectProvider(this, 'OpenIdConnectProvider', {
         url: this.clusterOpenIdConnectIssuerUrl,
+        oidcProviderTemplateURL: this.oidcProviderTemplateURL,
+        subnets: this.kubectlPrivateSubnets,
+        securityGroup: this.clusterHandlerSecurityGroup,
       });
     }
 
@@ -2160,7 +2243,7 @@ class ImportedCluster extends ClusterBase {
     return this.props.clusterEncryptionConfigKeyArn;
   }
 
-  public get openIdConnectProvider(): iam.IOpenIdConnectProvider {
+  public get openIdConnectProvider(): OpenIdConnectProvider {
     if (!this.props.openIdConnectProvider) {
       throw new Error('"openIdConnectProvider" is not defined for this imported cluster');
     }

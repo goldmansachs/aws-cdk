@@ -27,12 +27,12 @@ export class KubectlNestedStack extends CoreConstruct {
     super(scope, id);
 
     if (!props.cluster.kubectlPrivateSubnets || props.cluster.kubectlPrivateSubnets.length === 0) {
-      throw new Error(`Subnets must be provided to use S3 nested stack template.
+      throw new Error(`Subnets must be provided to use "kubectlProviderTemplateURL" S3 nested stack template.
        Ensure placeClusterHandlerInVpc is set to true.`);
     }
 
     if (!props.cluster.clusterHandlerSecurityGroup) {
-      throw new Error(`Security group must be provided to use S3 nested stack template.
+      throw new Error(`Security group must be provided to use "kubectlProviderTemplateURL" S3 nested stack template.
        Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
     }
 

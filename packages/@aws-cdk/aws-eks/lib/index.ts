@@ -12,3 +12,7 @@ export * from './service-account';
 export * from './managed-nodegroup';
 export * from './oidc-provider';
 export * from './alb-controller';
+
+// gs-extension - keep this import as a separate section to reduce merge conflicts
+// eslint-disable-next-line
+export * from './gs-extension/kubernetes-external-secrets';

@@ -111,7 +111,7 @@ describe('service account', () => {
     });
     test('addServiceAccount for imported cluster', () => {
       const { stack } = testFixture();
-      const oidcProvider = new iam.OpenIdConnectProvider(stack, 'ClusterOpenIdConnectProvider', {
+      const oidcProvider = new eks.OpenIdConnectProvider(stack, 'ClusterOpenIdConnectProvider', {
         url: 'oidc_issuer',
       });
       const cluster = eks.Cluster.fromClusterAttributes(stack, 'Cluster', {
