@@ -1,6 +1,7 @@
 import * as iam from '@aws-cdk/aws-iam';
 import { CfnStack, Fn, RemovalPolicy, Token } from '@aws-cdk/core';
 import { ICluster } from '../cluster';
+import { IKubectlProvider } from '../kubectl-provider';
 
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
 // eslint-disable-next-line
@@ -15,8 +16,9 @@ export interface KubectlNestedStackProps {
 }
 
 const PROVIDER_ARN_OUTPUT_NAME = 'Outputs.KubectlProviderframeworkonEventC84E6CE2Arn';
+const HANDLER_ROLE_ARN_OUTPUT_NAME = 'Outputs.HandlerServiceRoleFCDC14AEArn';
 
-export class KubectlNestedStack extends CoreConstruct {
+export class KubectlNestedStack extends CoreConstruct implements IKubectlProvider {
   private readonly resource: CfnStack;
 
   constructor(
@@ -52,7 +54,7 @@ export class KubectlNestedStack extends CoreConstruct {
   }
 
   /**
-   * Helper method to conform to the KubectlProvider interface and
+   * Helper method to conform to the IKubectlProvider interface and
    * the custom resource service token for this provider.
    */
   public get serviceToken() {
@@ -62,10 +64,24 @@ export class KubectlNestedStack extends CoreConstruct {
   }
 
   /**
-   * Helper method to conform to the KubectlProvider interface and
+   * Helper method to conform to the IKubectlProvider interface and
    * return the roleArn of the attached role
    */
   public get roleArn() {
     return this.props.clusterCreationRole.roleArn;
+  }
+
+  /**
+   * Helper method to conform to the IKubectlProvider interface and
+   * return the roleArn of the attached role
+   */
+  public get handlerRole() {
+    return iam.Role.fromRoleArn(
+      this,
+      'HandlerRole',
+      Token.asString(
+        this.resource.getAtt(HANDLER_ROLE_ARN_OUTPUT_NAME),
+      ),
+    );
   }
 }

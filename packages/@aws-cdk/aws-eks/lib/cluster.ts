@@ -1418,7 +1418,7 @@ export class Cluster extends ClusterBase {
    */
   private readonly _kubectlReadyBarrier: CfnResource;
 
-  private readonly _kubectlResourceProvider: KubectlProvider | KubectlNestedStack;
+  private readonly _kubectlResourceProvider: IKubectlProvider;
 
   /**
    * Initiates an EKS Cluster with the supplied arguments
@@ -1864,7 +1864,7 @@ export class Cluster extends ClusterBase {
    *
    * @internal
    */
-  public _attachKubectlResourceScope(resourceScope: Construct): KubectlProvider | KubectlNestedStack {
+  public _attachKubectlResourceScope(resourceScope: Construct): IKubectlProvider {
     Node.of(resourceScope).addDependency(this._kubectlReadyBarrier);
     return this._kubectlResourceProvider;
   }
