@@ -137,16 +137,6 @@ export class OpenIdConnectProvider extends Resource implements IOpenIdConnectPro
       });
 
       serviceToken = oidcProvider.serviceToken;
-
-      // resource = new CfnResource(this, 'Resource', {
-      //   type: RESOURCE_TYPE,
-      //   properties: {
-      //     ServiceToken: oidcProvider.serviceToken,
-      //     ClientIDList: clientIds,
-      //     ThumbprintList: thumbprints,
-      //     Url: props.url,
-      //   },
-      // });
     } else {
       serviceToken = this.getOrCreateProvider();
     }
