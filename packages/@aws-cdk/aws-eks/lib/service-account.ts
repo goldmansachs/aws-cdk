@@ -110,8 +110,6 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
       if (props.cluster.cfnJsonProviderTemplateURL) {
         const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
           templateURL: props.cluster.cfnJsonProviderTemplateURL,
-          subnets: cluster.kubectlPrivateSubnets,
-          securityGroup: cluster.clusterHandlerSecurityGroup,
         });
 
         conditions = new CfnJsonCustomResource(this, 'ConditionJson', {

@@ -76,8 +76,6 @@ export class ClusterResourceProvider extends NestedStack {
       return stack.node.tryFindChild(uid) as ClusterResourceNestedStack ?? new ClusterResourceNestedStack(stack, uid, {
         templateURL: props.clusterResourceProviderTemplateURL,
         clusterCreationRole: props.clusterCreationRole,
-        subnets: props.subnets,
-        securityGroup: props.securityGroup,
       });
     } else {
       return stack.node.tryFindChild(uid) as ClusterResourceProvider ?? new ClusterResourceProvider(stack, uid, props);
