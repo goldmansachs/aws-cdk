@@ -31,13 +31,44 @@ def apply_handler(event, context):
     skip_validation = props.get('SkipValidation', 'false').lower() == 'true'
 
     # "log in" to the cluster
-    cmd = [ 'aws', 'eks', 'update-kubeconfig',
-        '--role-arn', role_arn,
-        '--name', cluster_name,
-        '--kubeconfig', kubeconfig
-    ]
-    logger.info(f'Running command: {cmd}')
-    subprocess.check_call(cmd)
+#    cmd = [ 'aws', 'eks', 'update-kubeconfig',
+#        '--role-arn', role_arn,
+#        '--name', cluster_name,
+#        '--kubeconfig', kubeconfig
+#    ]
+#    logger.info(f'Running command: {cmd}')
+#    subprocess.check_call(cmd)
+    kubeconfig_file = open(kubeconfig, "w")
+
+    kubeconfig_data = f"""apiVersion: v1
+        clusters:
+          - name: {cluster_name}
+            cluster:
+              server: {cluster_endpoint}
+              certificate-authority-data: {cluster_certificate_authority_data}
+        users:
+          - name: lambda
+            user:
+              exec:
+                apiVersion: client.authentication.k8s.io/v1alpha1
+                command: /opt/aws-iam-authenticator/aws-iam-authenticator
+                args:
+                  - token
+                  - -i
+                  - {cluster_name}
+                  - -r
+                  - {role_arn}
+        contexts:
+          - name: default
+            context:
+              cluster: {cluster_name}
+              user: lambda
+        current-context: default
+        """
+    kubeconfig_file.write(kubeconfig_data)
+    kubeconfig_file.close()
+
+    print(kubeconfig)
 
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)
