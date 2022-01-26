@@ -96,8 +96,6 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
       const loadBalancerControllerStack = new LoadBalancerControllerNestedStack(this, 'LoadBalancerControllerRoleProvider', {
         templateURL: this.loadBalancerControllerTemplateURL,
         openIdConnectProviderRef: cluster.openIdConnectProvider.openIdConnectProviderArn,
-        subnets: cluster.kubectlPrivateSubnets,
-        securityGroup: cluster.clusterHandlerSecurityGroup,
       });
       this.role = Role.fromRoleArn(this, 'Role', loadBalancerControllerStack.eksLoadBalancerControllerRoleArn);
     } else {
