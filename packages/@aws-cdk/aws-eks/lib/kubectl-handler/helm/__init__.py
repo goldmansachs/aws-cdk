@@ -34,6 +34,8 @@ def helm_handler(event, context):
 
     # resource properties
     cluster_name     = props['ClusterName']
+    cluster_endpoint = props['ClusterEndpoint']
+    cluster_certificate_authority_data = props['ClusterCertificateAuthorityData']
     role_arn         = props['RoleArn']
     release          = props['Release']
     chart            = props.get('Chart', None)

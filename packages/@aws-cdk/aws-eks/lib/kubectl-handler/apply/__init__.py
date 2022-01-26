@@ -21,6 +21,9 @@ def apply_handler(event, context):
 
     # resource properties (all required)
     cluster_name  = props['ClusterName']
+    cluster_endpoint = props['ClusterEndpoint']
+    cluster_certificate_authority_data = props['ClusterCertificateAuthorityData']
+
     manifest_text = props['Manifest']
     role_arn      = props['RoleArn']
     prune_label   = props.get('PruneLabel', None)

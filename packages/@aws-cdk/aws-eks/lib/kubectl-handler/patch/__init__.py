@@ -21,6 +21,8 @@ def patch_handler(event, context):
 
     # resource properties (all required)
     cluster_name  = props['ClusterName']
+    cluster_endpoint = props['ClusterEndpoint']
+    cluster_certificate_authority_data = props['ClusterCertificateAuthorityData']
     role_arn      = props['RoleArn']
 
     # "log in" to the cluster

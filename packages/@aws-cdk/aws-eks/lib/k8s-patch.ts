@@ -87,6 +87,8 @@ export class KubernetesPatch extends CoreConstruct {
         ApplyPatchJson: stack.toJsonString(props.applyPatch),
         RestorePatchJson: stack.toJsonString(props.restorePatch),
         ClusterName: props.cluster.clusterName,
+        ClusterEndpoint: props.cluster.clusterEndpoint,
+        ClusterCertificateAuthorityData: props.cluster.clusterCertificateAuthorityData,
         RoleArn: provider.roleArn, // TODO: bake into provider's environment
         PatchType: props.patchType ?? PatchType.STRATEGIC,
       },
