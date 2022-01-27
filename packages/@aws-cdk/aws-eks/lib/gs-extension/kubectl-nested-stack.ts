@@ -29,15 +29,8 @@ export class KubectlNestedStack extends CoreConstruct implements IKubectlProvide
     super(scope, id);
 
     if (!props.cluster.kubectlPrivateSubnets || props.cluster.kubectlPrivateSubnets.length === 0) {
-      throw new Error(`Subnets must be provided to use "kubectlProviderTemplateURL" S3 nested stack template.
-       Ensure placeClusterHandlerInVpc is set to true.`);
+      throw new Error('Subnets must be provided to use "kubectlProviderTemplateURL" S3 nested stack template.');
     }
-
-    if (!props.cluster.clusterHandlerSecurityGroup) {
-      throw new Error(`Security group must be provided to use "kubectlProviderTemplateURL" S3 nested stack template.
-       Ensure placeClusterHandlerInVpc is set to true and clusterHandlerSecurityGroup is specified`);
-    }
-
 
     const parentScope = new CoreConstruct(scope, id + '.NestedStack');
 
@@ -47,7 +40,11 @@ export class KubectlNestedStack extends CoreConstruct implements IKubectlProvide
         ClusterArn: props.cluster.clusterArn,
         ClusterCreationRoleArn: props.clusterCreationRole.roleArn,
         SubnetIds: Fn.join(',', props.cluster.kubectlPrivateSubnets.map(subnet => subnet.subnetId)),
-        SecurityGroupIds: Fn.join(',', [props.cluster.clusterHandlerSecurityGroup.securityGroupId]),
+        // NOTE: kubectlSecurityGroup is the same as clusterSecurityGroup by default
+        // But kubectlSecurityGroup can be overridden
+        // See cluster.ts
+        // https://github.com/goldmansachs/aws-cdk/blob/0e704467abf3e9232de1af1427360a87b6728882/packages/@aws-cdk/aws-eks/lib/cluster.ts#L1616
+        SecurityGroupIds: Fn.join(',', [props.cluster.kubectlSecurityGroup!.securityGroupId]),
       },
     });
     this.resource.applyRemovalPolicy(props.removalPolicy ?? RemovalPolicy.DESTROY);
