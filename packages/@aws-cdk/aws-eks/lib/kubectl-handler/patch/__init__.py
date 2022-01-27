@@ -58,10 +58,11 @@ def patch_handler(event, context):
               cluster: {cluster_name}
               user: lambda
         current-context: default
-        """
+    """
     kubeconfig_file.write(kubeconfig_data)
-    print(kubeconfig_file.read())
     kubeconfig_file.close()
+
+    print(kubeconfig_data)
 
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)
