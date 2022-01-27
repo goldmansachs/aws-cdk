@@ -60,9 +60,8 @@ def patch_handler(event, context):
         current-context: default
         """
     kubeconfig_file.write(kubeconfig_data)
+    print(kubeconfig_file.read())
     kubeconfig_file.close()
-
-    print(kubeconfig)
 
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)

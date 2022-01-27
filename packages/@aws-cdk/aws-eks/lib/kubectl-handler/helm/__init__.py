@@ -57,7 +57,8 @@ def helm_handler(event, context):
 
     kubeconfig_file = open(kubeconfig, "w")
 
-    kubeconfig_data = f"""apiVersion: v1
+    kubeconfig_data = f"""
+        apiVersion: v1
         clusters:
           - name: {cluster_name}
             cluster:
@@ -83,9 +84,7 @@ def helm_handler(event, context):
         current-context: default
         """
     kubeconfig_file.write(kubeconfig_data)
-    kubeconfig_file.close()
-
-    print(kubeconfig)
+    print(kubeconfig_file.read())
 
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)

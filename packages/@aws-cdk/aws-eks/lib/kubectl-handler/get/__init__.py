@@ -35,7 +35,8 @@ def get_handler(event, context):
 
     kubeconfig_file = open(kubeconfig, "w")
 
-    kubeconfig_data = f"""apiVersion: v1
+    kubeconfig_data = f"""
+        apiVersion: v1
         clusters:
           - name: {cluster_name}
             cluster:
@@ -61,9 +62,8 @@ def get_handler(event, context):
         current-context: default
         """
     kubeconfig_file.write(kubeconfig_data)
+    print(kubeconfig_file.read())
     kubeconfig_file.close()
-
-    print(kubeconfig)
 
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)
