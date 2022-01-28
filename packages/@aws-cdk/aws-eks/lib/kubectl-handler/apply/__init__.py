@@ -69,6 +69,7 @@ users:
     kubeconfig_file.write(kubeconfig_data)
     kubeconfig_file.close()
 
+
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)
 
