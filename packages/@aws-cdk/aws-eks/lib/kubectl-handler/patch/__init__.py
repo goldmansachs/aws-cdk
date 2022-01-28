@@ -58,7 +58,7 @@ users:
       - {cluster_name}
       - -r
       - {role_arn}
-      command: /opt/kubectl/aws-iam-authenticator
+      command: /opt/aws-iam-authenticator/aws-iam-authenticator
 """
     kubeconfig_file.write(kubeconfig_data)
     kubeconfig_file.close()
