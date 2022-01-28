@@ -58,33 +58,33 @@ def helm_handler(event, context):
     kubeconfig_file = open(kubeconfig, "w")
 
     kubeconfig_data = f"""
-        apiVersion: v1
-        clusters:
-          - name: {cluster_name}
-            cluster:
-              server: {cluster_endpoint}
-              certificate-authority-data: {cluster_certificate_authority_data}
-        users:
-          - name: lambda
-            user:
-              exec:
-                apiVersion: client.authentication.k8s.io/v1alpha1
-                command: /opt/aws-iam-authenticator/aws-iam-authenticator
-                args:
-                  - token
-                  - -i
-                  - {cluster_name}
-                  - -r
-                  - {role_arn}
-        contexts:
-          - name: default
-            context:
-              cluster: {cluster_name}
-              user: lambda
-        current-context: default
-        """
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: {cluster_certificate_authority_data}
+    server: {cluster_endpoint}
+  name: {cluster_name}
+contexts:
+- context:
+    cluster: {cluster_name}
+    user: lambda
+  name: default
+current-context: default
+users:
+- name: lambda
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1alpha1
+      args:
+      - token
+      - -i
+      - {cluster_name}
+      - -r
+      - {role_arn}
+      command: /opt/kubectl/aws-iam-authenticator
+"""
     kubeconfig_file.write(kubeconfig_data)
-    print(kubeconfig_file.read())
+    kubeconfig_file.close()
 
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)
