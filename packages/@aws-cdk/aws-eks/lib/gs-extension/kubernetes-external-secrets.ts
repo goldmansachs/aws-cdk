@@ -1,6 +1,6 @@
 import { Construct } from 'constructs';
 import { Cluster } from '../cluster';
-import { HelmChart } from '../helm-chart';
+import { HelmChart, HelmChartOptions } from '../helm-chart';
 import { ServiceAccount } from '../service-account';
 
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
@@ -30,6 +30,15 @@ export interface KubernetesExternalSecretsProps {
    * @default - ServiceAccount is created
    */
   readonly serviceAccount?: ServiceAccount;
+
+  // using a subset of HelmChartOptions since we only want certain props passed
+  // in
+  /**
+   * helm chart props override to allow using chart from S3 asset
+   *
+   * @default - Pulls helm chart from https://external-secrets.github.io/kubernetes-external-secrets
+   */
+  readonly helmChartProps?: HelmChartOptions
 }
 
 /**
@@ -82,9 +91,14 @@ export class KubernetesExternalSecrets extends CoreConstruct {
 
     const chart = new HelmChart(this, 'Resource', {
       cluster: props.cluster,
-      chart: 'kubernetes-external-secrets',
-      repository:
-        'https://external-secrets.github.io/kubernetes-external-secrets/',
+      chartAsset: props.helmChartProps?.chartAsset,
+      chart: props.helmChartProps?.chartAsset ? undefined : 'kubernetes-external-secrets',
+      repository: props.helmChartProps?.chartAsset ? undefined : 'https://external-secrets.github.io/kubernetes-external-secrets',
+      release: props.helmChartProps?.chartAsset ? undefined : 'kubernetes-external-secrets',
+
+      // latest at the time of writing
+      version: props.helmChartProps?.chartAsset ? undefined : '8.5.2',
+
       namespace,
       values: {
         serviceAccount: {

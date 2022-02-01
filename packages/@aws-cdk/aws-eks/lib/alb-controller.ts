@@ -1,9 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as iam from '@aws-cdk/aws-iam';
+// import { Asset } from '@aws-cdk/aws-s3-assets';
 import { Construct } from 'constructs';
 import { Cluster } from './cluster';
-import { HelmChart } from './helm-chart';
+import { HelmChart, HelmChartOptions } from './helm-chart';
 import { ServiceAccount } from './service-account';
 
 // v2 - keep this import as a separate section to reduce merge conflict when forward merging with the v2 branch.
@@ -158,6 +159,14 @@ export interface AlbControllerOptions {
    */
   readonly policy?: any;
 
+  // using a subset of HelmChartOptions since we only want certain props passed
+  // in
+  /**
+   * helm chart props override to allow using chart from S3 asset
+   *
+   * @default - Pulls helm chart from https://aws.github.io/eks-charts
+   */
+  readonly helmChartProps?: HelmChartOptions
 }
 
 /**
@@ -227,16 +236,17 @@ export class AlbController extends CoreConstruct {
     // https://kubernetes-sigs.github.io/aws-load-balancer-controller/v2.2/deploy/installation/#add-controller-to-cluster
     const chart = new HelmChart(this, 'Resource', {
       cluster: props.cluster,
-      chart: 'aws-load-balancer-controller',
-      repository: 'https://aws.github.io/eks-charts',
+      chartAsset: props.helmChartProps?.chartAsset,
+      chart: props.helmChartProps?.chartAsset ? undefined : 'aws-load-balancer-controller',
+      repository: props.helmChartProps?.chartAsset ? undefined : 'https://aws.github.io/eks-charts',
       namespace,
-      release: 'aws-load-balancer-controller',
+      release: props.helmChartProps?.chartAsset ? undefined : 'aws-load-balancer-controller',
 
       // latest at the time of writing. We intentionally don't
       // want to expose this since helm here is just an implementation detail
       // for installing a specific version of the controller itself.
       // https://github.com/aws/eks-charts/blob/v0.0.65/stable/aws-load-balancer-controller/Chart.yaml
-      version: '1.2.7',
+      version: props.helmChartProps?.chartAsset ? undefined : '1.2.7',
 
       wait: true,
       timeout: Duration.minutes(15),
