@@ -1,7 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as iam from '@aws-cdk/aws-iam';
-// import { Asset } from '@aws-cdk/aws-s3-assets';
 import { Construct } from 'constructs';
 import { Cluster } from './cluster';
 import { HelmChart, HelmChartOptions } from './helm-chart';
