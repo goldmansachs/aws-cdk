@@ -96,8 +96,6 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
       const loadBalancerControllerStack = new LoadBalancerControllerNestedStack(this, 'LoadBalancerControllerRoleProvider', {
         templateURL: this.loadBalancerControllerTemplateURL,
         openIdConnectProviderRef: cluster.openIdConnectProvider.openIdConnectProviderArn,
-        subnets: cluster.kubectlPrivateSubnets,
-        securityGroup: cluster.clusterHandlerSecurityGroup,
       });
       this.role = Role.fromRoleArn(this, 'Role', loadBalancerControllerStack.eksLoadBalancerControllerRoleArn);
     } else {
@@ -110,8 +108,6 @@ export class ServiceAccount extends CoreConstruct implements IPrincipal {
       if (props.cluster.cfnJsonProviderTemplateURL) {
         const cfnJsonProvider = new CfnJsonProviderNestedStack(this, 'ConditionJsonProvider', {
           templateURL: props.cluster.cfnJsonProviderTemplateURL,
-          subnets: cluster.kubectlPrivateSubnets,
-          securityGroup: cluster.clusterHandlerSecurityGroup,
         });
 
         conditions = new CfnJsonCustomResource(this, 'ConditionJson', {

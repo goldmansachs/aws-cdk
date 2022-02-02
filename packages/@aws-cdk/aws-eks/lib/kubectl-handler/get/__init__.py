@@ -22,14 +22,47 @@ def get_handler(event, context):
 
     # resource properties (all required)
     cluster_name  = props['ClusterName']
+    cluster_endpoint = props['ClusterEndpoint']
+    cluster_certificate_authority_data = props['ClusterCertificateAuthorityData']
     role_arn      = props['RoleArn']
 
     # "log in" to the cluster
-    subprocess.check_call([ 'aws', 'eks', 'update-kubeconfig',
-        '--role-arn', role_arn,
-        '--name', cluster_name,
-        '--kubeconfig', kubeconfig
-    ])
+#    subprocess.check_call([ 'aws', 'eks', 'update-kubeconfig',
+#        '--role-arn', role_arn,
+#        '--name', cluster_name,
+#        '--kubeconfig', kubeconfig
+#    ])
+
+    kubeconfig_file = open(kubeconfig, "w")
+
+    kubeconfig_data = f"""
+apiVersion: v1
+clusters:
+- cluster:
+    certificate-authority-data: {cluster_certificate_authority_data}
+    server: {cluster_endpoint}
+  name: {cluster_name}
+contexts:
+- context:
+    cluster: {cluster_name}
+    user: lambda
+  name: default
+current-context: default
+users:
+- name: lambda
+  user:
+    exec:
+      apiVersion: client.authentication.k8s.io/v1alpha1
+      args:
+      - token
+      - -i
+      - {cluster_name}
+      - -r
+      - {role_arn}
+      command: /opt/aws-iam-authenticator/aws-iam-authenticator
+"""
+    kubeconfig_file.write(kubeconfig_data)
+    kubeconfig_file.close()
 
     if os.path.isfile(kubeconfig):
         os.chmod(kubeconfig, 0o600)

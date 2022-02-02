@@ -138,6 +138,8 @@ export class HelmChart extends CoreConstruct {
       resourceType: HelmChart.RESOURCE_TYPE,
       properties: {
         ClusterName: props.cluster.clusterName,
+        ClusterEndpoint: props.cluster.clusterEndpoint,
+        ClusterCertificateAuthorityData: props.cluster.clusterCertificateAuthorityData,
         RoleArn: provider.roleArn, // TODO: bake into the provider's environment
         Release: props.release ?? Names.uniqueId(this).slice(-53).toLowerCase(), // Helm has a 53 character limit for the name
         Chart: props.chart,

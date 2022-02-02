@@ -132,8 +132,6 @@ export class OpenIdConnectProvider extends Resource implements IOpenIdConnectPro
     if (props.oidcProviderTemplateURL) {
       const oidcProvider = new OidcProviderNestedStack(this, RESOURCE_TYPE, {
         templateURL: props.oidcProviderTemplateURL,
-        subnets: props.subnets,
-        securityGroup: props.securityGroup,
       });
 
       serviceToken = oidcProvider.serviceToken;

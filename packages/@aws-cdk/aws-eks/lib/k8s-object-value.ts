@@ -73,6 +73,8 @@ export class KubernetesObjectValue extends CoreConstruct {
       serviceToken: provider.serviceToken,
       properties: {
         ClusterName: props.cluster.clusterName,
+        ClusterEndpoint: props.cluster.clusterEndpoint,
+        ClusterCertificateAuthorityData: props.cluster.clusterCertificateAuthorityData,
         RoleArn: provider.roleArn,
         ObjectType: props.objectType,
         ObjectName: props.objectName,

@@ -148,6 +148,8 @@ export class KubernetesManifest extends CoreConstruct {
         // StepFunctions, CloudWatch Dashboards etc).
         Manifest: stack.toJsonString(props.manifest),
         ClusterName: props.cluster.clusterName,
+        ClusterEndpoint: props.cluster.clusterEndpoint,
+        ClusterCertificateAuthorityData: props.cluster.clusterCertificateAuthorityData,
         RoleArn: provider.roleArn, // TODO: bake into provider's environment
         PruneLabel: pruneLabel,
         Overwrite: props.overwrite,
