@@ -31,6 +31,13 @@ export interface KubernetesExternalSecretsProps {
    */
   readonly serviceAccount?: ServiceAccount;
 
+  /**
+   * Additional values to be used by the chart.
+   * @default - env.AWS_REGION is provided to the chart and will always be provided
+   * to the chart.
+   */
+  readonly values?: {[key: string]: any};
+
   // using a subset of HelmChartOptions since we only want certain props passed
   // in
   /**
@@ -89,6 +96,14 @@ export class KubernetesExternalSecrets extends CoreConstruct {
         cluster: props.cluster,
       });
 
+    const values = props.values ?? {};
+    values.serviceAccount = {
+      create: false,
+      name: this.serviceAccount.serviceAccountName,
+    };
+    values.env = values.env ?? {};
+    values.env.AWS_REGION = region;
+
     const chart = new HelmChart(this, 'Resource', {
       cluster: props.cluster,
       chartAsset: props.helmChartProps?.chartAsset,
@@ -100,16 +115,7 @@ export class KubernetesExternalSecrets extends CoreConstruct {
       version: props.helmChartProps?.chartAsset ? undefined : '8.5.2',
 
       namespace,
-      values: {
-        serviceAccount: {
-          create: false,
-          name: this.serviceAccount.serviceAccountName,
-        },
-        env: {
-          AWS_REGION: region,
-          AWS_DEFAULT_REGION: region,
-        },
-      },
+      values,
     });
 
     // the secrets rely on permissions deployed using these resources.
