@@ -33,8 +33,8 @@ export interface KubernetesExternalSecretsProps {
 
   /**
    * Additional values to be used by the chart.
-   * @default - env.AWS_REGION is provided to the chart and will always be provided
-   * to the chart.
+   * @default - serviceAccount and env.AWS_REGION are provided to the chart
+   * and will always be provided to the chart.
    */
   readonly values?: {[key: string]: any};
 
