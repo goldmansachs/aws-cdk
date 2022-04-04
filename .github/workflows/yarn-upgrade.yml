@@ -99,7 +99,7 @@ jobs:
           }}/upgrade.patch || echo "Empty patch. Skipping."'
 
       - name: Make Pull Request
-        uses: peter-evans/create-pull-request@v3
+        uses: peter-evans/create-pull-request@v4.0.1
         with:
           # Git commit details
           branch: automation/yarn-upgrade
